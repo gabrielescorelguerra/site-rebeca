@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@400;600&family=Nunito:wght@400;600;700&family=Oswald:wght@400;600&family=Press+Start+2P&family=Space+Mono:wght@400;700&family=Special+Elite&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+@keyframes appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes drift {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(14px, 10px) rotate(8deg); }
+}
+
+@keyframes arrow-pulse {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(4px, -4px); }
+}
+
+@keyframes planning-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes planning-rise { from { opacity: 0; transform: translateY(42px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes planning-slide-left { from { opacity: 0; transform: translateX(-70px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes planning-slide-right { from { opacity: 0; transform: translateX(70px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes planning-zoom { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+@keyframes planning-flip { from { opacity: 0; transform: perspective(800px) rotateX(-70deg); } to { opacity: 1; transform: perspective(800px) rotateX(0); } }
+@keyframes planning-bounce { 0% { opacity: 0; transform: translateY(35px); } 60% { transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes planning-glitch { 0%, 100% { opacity: 1; transform: translate(0); } 25% { opacity: .7; transform: translate(-4px, 2px); } 50% { opacity: .9; transform: translate(4px, -2px); } 75% { opacity: .65; transform: translate(2px, 3px); } }
+@keyframes planning-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes planning-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes planning-sway { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
+@keyframes planning-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@keyframes planning-spin { to { transform: rotate(360deg); } }
+@keyframes planning-pulse { 0%, 100% { opacity: .65; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
+@keyframes planning-swing { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+@keyframes planning-orbit { from { transform: rotate(0) translateX(8px) rotate(0); } to { transform: rotate(360deg) translateX(8px) rotate(-360deg); } }
+@keyframes planning-jelly { 0%, 100% { transform: scale(1, 1); } 30% { transform: scale(1.15, .85); } 60% { transform: scale(.9, 1.1); } }
+@keyframes planning-glow-soft { 0%, 100% { filter: drop-shadow(0 0 0 transparent); } 50% { filter: drop-shadow(0 0 12px var(--accent-color)); } }
+@keyframes planning-glow-pulse { 0%, 100% { filter: drop-shadow(0 0 4px var(--accent-color)); } 50% { filter: drop-shadow(0 0 28px var(--accent-color)); } }
+@keyframes planning-glow-rainbow { 0% { filter: hue-rotate(0deg) drop-shadow(0 0 12px var(--accent-color)); } 100% { filter: hue-rotate(360deg) drop-shadow(0 0 12px var(--accent-color)); } }
+@keyframes planning-glow-flicker { 0%, 100% { filter: drop-shadow(0 0 10px var(--accent-color)); } 20% { filter: drop-shadow(0 0 2px var(--accent-color)); } 40% { filter: drop-shadow(0 0 22px var(--accent-color)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html {
+  min-width: 320px;
+  background: #fbf8f6;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  appearance: none;
+}
+
+.admin-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  border: 1px solid #e8dfe0;
+  border-radius: 0.75rem;
+  background: transparent;
+  padding: 0.75rem 1rem;
+  color: #31292d;
+  outline: none;
+}
+
+.admin-input:focus {
+  border-color: #bd7184;
+}
+
+label {
+  color: #88777c;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+}

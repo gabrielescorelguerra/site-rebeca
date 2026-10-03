@@ -1,0 +1,17 @@
+export const planningPatterns = {
+  none: '',
+  stars: 'bg-[radial-gradient(circle_at_20%_20%,rgba(189,113,132,.45)_0_1px,transparent_1.5px)] bg-[length:28px_28px]',
+  game: 'bg-[radial-gradient(circle_at_75%_20%,rgba(189,113,132,.2)_0_2px,transparent_2.5px)] bg-[length:42px_42px]',
+  minecraft: 'bg-[linear-gradient(45deg,rgba(83,156,74,.12)_25%,transparent_25%,transparent_75%,rgba(83,156,74,.12)_75%),linear-gradient(45deg,rgba(83,156,74,.12)_25%,transparent_25%,transparent_75%,rgba(83,156,74,.12)_75%)] bg-[length:28px_28px] [background-position:0_0,14px_14px]',
+  arcade: 'bg-[linear-gradient(90deg,rgba(212,107,255,.13)_1px,transparent_1px),linear-gradient(rgba(212,107,255,.13)_1px,transparent_1px)] bg-[length:24px_24px]',
+  hearts: 'bg-[radial-gradient(circle_at_20%_20%,rgba(189,113,132,.25)_0_3px,transparent_3.5px)] bg-[length:38px_38px]',
+  grid: 'bg-[linear-gradient(rgba(49,41,45,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(49,41,45,.08)_1px,transparent_1px)] bg-[length:32px_32px]',
+  dots: 'bg-[radial-gradient(circle,rgba(49,41,45,.16)_1px,transparent_1.5px)] bg-[length:16px_16px]',
+  clouds: 'bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.8),transparent_55%)]',
+  space: 'bg-[radial-gradient(circle_at_20%_20%,#fff_0_1px,transparent_1.5px),radial-gradient(circle_at_80%_70%,#9d7cff_0_1px,transparent_1.5px)] bg-[length:46px_46px,72px_72px] bg-[#08051c]',
+  racing: 'bg-[linear-gradient(135deg,transparent_0_45%,rgba(255,255,255,.28)_45%_48%,transparent_48%_100%)] bg-[length:38px_38px] bg-[#25213c]',
+  dungeon: 'bg-[linear-gradient(90deg,rgba(0,0,0,.16) 1px,transparent 1px),linear-gradient(rgba(0,0,0,.16) 1px,transparent 1px)] bg-[length:42px_42px] bg-[#52443f]',
+  pixel: 'bg-[linear-gradient(45deg,rgba(255,255,255,.22) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.22) 75%)] bg-[length:18px_18px] bg-[#559b4a]',
+  underwater: 'bg-[radial-gradient(circle_at_30%_70%,rgba(255,255,255,.22),transparent 10%),linear-gradient(#5ad1e6,#146c9d)]',
+  portal: 'bg-[conic-gradient(from_90deg_at_50%_50%,#00e5ff,#7b2cff,#ff3cac,#00e5ff)]',
+}
