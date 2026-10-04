@@ -1,4 +1,7 @@
+import { supabase } from '../lib/supabase'
+
 export const PLANNING_KEY = 'rebecca-call-planning'
+export const PLANNING_ROW_ID = 'main'
 export const AUTHENTICATED_KEY = 'rebecca-authenticated'
 export const ADMIN_AUTHENTICATED_KEY = 'rebecca-admin-authenticated'
 
@@ -253,15 +256,36 @@ export const planningOptions = {
   ],
 }
 
-export function loadPlanning() {
-  try {
-    const stored = localStorage.getItem(PLANNING_KEY)
-    return stored ? { ...defaultPlanning, ...JSON.parse(stored) } : defaultPlanning
-  } catch {
-    return defaultPlanning
+export async function loadPlanning() {
+  if (!supabase) {
+    throw new Error('Supabase não configurado. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.')
   }
+
+  const { data, error } = await supabase
+    .from('planning_config')
+    .select('config')
+    .eq('id', PLANNING_ROW_ID)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Não foi possível carregar a configuração do Supabase.', error)
+    throw error
+  }
+
+  return data?.config ? { ...defaultPlanning, ...data.config } : defaultPlanning
 }
 
-export function savePlanning(planning) {
-  localStorage.setItem(PLANNING_KEY, JSON.stringify(planning))
+export async function savePlanning(planning) {
+  if (!supabase) {
+    throw new Error('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.')
+  }
+
+  const { error } = await supabase
+    .from('planning_config')
+    .upsert({ id: PLANNING_ROW_ID, config: planning }, { onConflict: 'id' })
+
+  if (error) {
+    console.error('Não foi possível salvar a configuração no Supabase.', error)
+    throw error
+  }
 }

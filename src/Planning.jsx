@@ -1,7 +1,7 @@
 import { CalendarDays, Cat, Circle, CircleDashed, Coffee, Clock3, Crown, Cuboid, Dice5, ExternalLink, Flame, Gamepad2, Ghost, Heart, Joystick, Music, Rocket, Sparkles, Star, Square, Sword, Trophy, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { loadPlanning } from './data/planning'
+import { defaultPlanning, loadPlanning } from './data/planning'
 import { planningPatterns } from './data/planningVisuals'
 import { animationIntensities, animationSpeeds, entranceAnimations, hoverAnimations, iconAnimations, loopAnimations } from './data/planningAnimations'
 
@@ -159,7 +159,26 @@ export function PlanningView({ planning }) {
 
 function Planning() {
   const navigate = useNavigate()
-  const [planning] = useState(loadPlanning)
+  const [planning, setPlanning] = useState(defaultPlanning)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    loadPlanning()
+      .then((loadedPlanning) => {
+        if (active) setPlanning(loadedPlanning)
+      })
+      .catch((error) => {
+        console.error(error)
+        if (active) setLoadError(error.message || 'Não foi possível carregar a configuração.')
+      })
+    return () => { active = false }
+  }, [])
+
+  if (loadError) {
+    return <main className="flex min-h-svh items-center justify-center px-6 text-center text-[#31292d]"><p>{loadError}</p></main>
+  }
+
   const imageLayer = planning.backgroundImage ? { backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity } : {}
 
   return (

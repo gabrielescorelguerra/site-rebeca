@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Heart, Plus, Save, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { ADMIN_AUTHENTICATED_KEY, loadPlanning, planningOptions, savePlanning } from './data/planning'
+import { ADMIN_AUTHENTICATED_KEY, defaultPlanning, loadPlanning, planningOptions, savePlanning } from './data/planning'
 import { BackgroundIconLayer, PlanningView } from './Planning'
 import { planningPatterns } from './data/planningVisuals'
 
@@ -34,9 +34,10 @@ function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(
     () => localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true',
   )
-  const [planning, setPlanning] = useState(loadPlanning)
+  const [planning, setPlanning] = useState(defaultPlanning)
   const [saved, setSaved] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [animationTestKey, setAnimationTestKey] = useState(0)
   const [isPreviewPinned, setIsPreviewPinned] = useState(false)
 
@@ -44,13 +45,30 @@ function Admin() {
     if (!isAuthenticated) navigate('/autenticacao', { replace: true })
   }, [isAuthenticated, navigate])
 
+  useEffect(() => {
+    if (!isAuthenticated) return undefined
+    let active = true
+    loadPlanning()
+      .then((loadedPlanning) => {
+        if (active) setPlanning(loadedPlanning)
+      })
+      .catch((error) => {
+        console.error(error)
+        if (active) setLoadError(error.message || 'Não foi possível carregar a configuração.')
+      })
+    return () => { active = false }
+  }, [isAuthenticated])
+
   const update = (key, value) => setPlanning((current) => ({ ...current, [key]: value }))
 
   const handleSave = (event) => {
     event.preventDefault()
     savePlanning(planning)
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 2200)
+      .then(() => {
+        setSaved(true)
+        window.setTimeout(() => setSaved(false), 2200)
+      })
+      .catch(() => setUploadError('Não foi possível salvar no Supabase.'))
   }
 
   const updateActivity = (id, key, value) => {
@@ -80,6 +98,7 @@ function Admin() {
   }
 
   if (!isAuthenticated) return null
+  if (loadError) return <main className="flex min-h-svh items-center justify-center px-6 text-center text-[#31292d]"><p>{loadError}</p></main>
 
   const adminStyle = {
     backgroundColor: planning.backgroundColor,
