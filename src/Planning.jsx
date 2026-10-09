@@ -106,6 +106,8 @@ export function BackgroundIconLayer({ planning }) {
         color: planning.backgroundIconColor,
         opacity: planning.backgroundIconOpacity,
         padding: `${planning.backgroundIconSpacing / 2}px`,
+        '--animation-duration': animationSpeeds[planning.animationSpeed] || animationSpeeds.normal,
+        '--animation-intensity': animationIntensities[planning.animationIntensity] || 1,
         gap: `${planning.backgroundIconSpacing / 2}px`,
       }}
       aria-hidden="true"
@@ -127,33 +129,37 @@ export function BackgroundIconLayer({ planning }) {
 }
 
 export function PlanningView({ planning }) {
-  const formattedDate = new Date(planning.date).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })
+  const date = new Date(planning.date)
+  const formattedDate = Number.isNaN(date.getTime()) ? 'Nosso encontro ainda não tem data' : date.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })
   const Icon = gameIcons[planning.gameIcon] || CircleDashed
   const duration = animationSpeeds[planning.animationSpeed] || animationSpeeds.normal
   const intensity = animationIntensities[planning.animationIntensity] || animationIntensities.medium
   const animationStyle = planning.animationEnabled
     ? { '--animation-duration': duration, '--animation-ease': planning.animationPreset === 'dramatic' ? 'cubic-bezier(.2,.9,.2,1.4)' : 'cubic-bezier(.22,1,.36,1)', '--animation-intensity': intensity }
     : {}
-  const panelStyle = { ...(panelShapes[planning.panelShape] || panelShapes.rounded), color: planning.textColor, '--accent-color': planning.accentColor, fontFamily: fonts[planning.fontFamily] || fonts.sans, ...animationStyle }
+  const shadows = { none: 'none', soft: '0 18px 50px #30262a12', deep: '0 24px 60px #30262a35', glow: `0 0 35px ${planning.accentColor}50` }
+  const panelStyle = { ...(panelShapes[planning.panelShape] || panelShapes.rounded), borderWidth: `${planning.panelBorderWidth}px`, borderStyle: planning.panelBorderStyle, ...(planning.panelShadow !== 'theme' ? { boxShadow: shadows[planning.panelShadow] } : {}), '--activity-gap': `${planning.activityGap}px`, '--text-line-height': planning.textLineHeight, color: planning.textColor, '--accent-color': planning.accentColor, fontFamily: fonts[planning.fontFamily] || fonts.sans, textAlign: planning.textAlign, maxWidth: `${planning.panelWidth}px`, '--panel-padding': `${planning.panelPadding}px`, '--title-size': `${planning.titleSize}px`, ...(planning.fontSize === 'custom' ? { fontSize: `${planning.customFontSize}px`, '--custom-font-size': `${planning.customFontSize}px` } : {}), ...(planning.style === 'custom' ? { backgroundColor: `color-mix(in srgb, ${planning.panelColor} ${planning.panelOpacity * 100}%, transparent)`, borderColor: `${planning.accentColor}40` } : {}), ...animationStyle }
   const panelAnimation = planning.animationEnabled ? entranceAnimations[planning.panelEntrance] : ''
   const panelLoop = planning.animationEnabled ? loopAnimations[planning.panelLoop] : ''
   const hoverAnimation = planning.animationEnabled ? hoverAnimations[planning.hoverAnimation] : ''
   const glowAnimation = planning.animationEnabled ? glowAnimations[planning.glowAnimation] : ''
 
   return (
-    <section className={`relative mx-auto w-full max-w-5xl border p-7 sm:p-14 transition-all duration-500 ${styles[planning.style] || styles.minimal} ${sizes[planning.fontSize] || sizes.medium} ${panelAnimation} ${panelLoop} ${hoverAnimation} ${glowAnimation}`} style={{ ...panelStyle, animationDelay: `${planning.animationDelay || 0}s` }}>
+    <div className={`call-animation-wrapper ${panelAnimation}`} style={{ ...animationStyle, animationDelay: `${planning.animationDelay || 0}s` }}><div className={panelLoop} style={animationStyle}><section className={`call-panel editorial-panel relative mx-auto w-full max-w-5xl border p-7 sm:p-14 transition-all duration-500 ${planning.style === 'custom' ? '' : styles[planning.style] || styles.minimal} ${sizes[planning.fontSize] || sizes.medium} ${hoverAnimation} ${glowAnimation}`} style={{ ...panelStyle, animationDelay: `${planning.animationDelay || 0}s` }}>
       {shapeDecorations[planning.panelShape] && <div className="pointer-events-none absolute inset-0 -z-0 opacity-10" style={{ clipPath: shapeDecorations[planning.panelShape], backgroundColor: planning.accentColor }} />}
-      <div className="relative z-10 max-w-3xl">
-        <div className="mb-7 flex items-center gap-2 text-xs uppercase tracking-[.2em]" style={{ color: planning.planningLabelColor || planning.accentColor }}><Icon className={planning.animationEnabled ? iconAnimations[planning.iconAnimation] : ''} style={{ animationDelay: '0.2s' }} size={16} aria-hidden="true" />planejamento da ligação</div>
-        <h1 className="text-4xl font-normal leading-none tracking-[-.06em] sm:text-7xl">{planning.title}</h1>
+      <div className="call-intro relative z-10">
+        {planning.showPlanningLabel && <div className="mb-7 flex items-center gap-2 text-xs uppercase tracking-[.2em]" style={{ color: planning.planningLabelColor || planning.accentColor }}><Icon className={planning.animationEnabled ? iconAnimations[planning.iconAnimation] : ''} style={{ animationDelay: '0.2s', '--animation-duration': duration }} size={16} aria-hidden="true" />{planning.planningLabel}</div>}
+        <h1 className="call-title font-normal leading-[1.06]" style={{ fontWeight: planning.titleWeight, letterSpacing: `${planning.titleSpacing}em` }}>{planning.title}</h1>
         <p className="mt-6 max-w-xl opacity-65">{planning.subtitle}</p>
-        <div className="mt-8 flex flex-wrap gap-4 text-sm opacity-70"><span className="flex items-center gap-2"><CalendarDays className="size-4" />{formattedDate}</span></div>
+        {planning.showDate && <div className="call-date mt-8 flex flex-wrap gap-4 text-sm opacity-70"><span className="flex items-center gap-2"><CalendarDays className="size-4" />{formattedDate}</span></div>}
+        {planning.showCountdown && <Countdown date={planning.date} />}
       </div>
-      <div className="relative z-10 mt-12 grid gap-8 border-t border-current/10 pt-8 lg:grid-cols-[1fr_280px]">
-        <div><h2 className="text-xs uppercase tracking-[.2em] opacity-55">o que vamos fazer</h2><ol className="mt-5 space-y-3">{planning.activities.map((activity, index) => <li className="flex items-center justify-between gap-4 border-b border-current/10 py-4" key={activity.id}><span className="flex items-center gap-4"><span className="text-sm text-[color:var(--accent-color)]">0{index + 1}</span><span>{activity.name}</span></span>{planning.showDurations && <span className="flex shrink-0 items-center gap-1 text-sm opacity-55"><Clock3 className="size-3.5" />{activity.duration}</span>}</li>)}</ol></div>
-        {planning.showTools && <aside className="border-t border-current/10 pt-6 lg:border-l lg:border-t-0 lg:pl-8"><h2 className="text-xs uppercase tracking-[.2em] opacity-55">vamos usar</h2><div className="mt-5 space-y-3">{planning.tools.map((tool) => <a className="flex items-center justify-between border-b border-current/10 py-3 transition-colors hover:text-[color:var(--accent-color)]" href={tool.url || '#'} target="_blank" rel="noreferrer" key={tool.id}>{tool.name}<ExternalLink className="size-4" /></a>)}</div></aside>}
+      <div className={`relative z-10 mt-12 grid gap-8 border-t border-current/10 pt-8 ${planning.showTools ? 'call-with-tools' : ''}`}>
+        <div><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.activitiesLabel}</h2><ol className={`call-activities mt-5 layout-${planning.activityLayout}`} >{planning.activities.map((activity, index) => <li className="flex items-center justify-between gap-4 border-b border-current/10 py-4" key={activity.id}><span className="flex items-center gap-4">{planning.showActivityNumbers && <span className="activity-number text-sm text-[color:var(--accent-color)]">{String(index + 1).padStart(2, '0')}</span>}<span>{activity.name}{activity.description && <small className="activity-description">{activity.description}</small>}</span></span>{planning.showDurations && <span className="flex shrink-0 items-center gap-1 text-sm opacity-55"><Clock3 className="size-3.5" />{activity.duration}</span>}</li>)}</ol></div>
+        {planning.showTools && <aside className="border-t border-current/10 pt-6 lg:border-l lg:border-t-0 lg:pl-8"><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.toolsLabel}</h2><div className="mt-5 space-y-3">{planning.tools.map((tool) => <a className="flex items-center justify-between border-b border-current/10 py-3 transition-colors hover:text-[color:var(--accent-color)]" href={/^https?:\/\//i.test(tool.url) ? tool.url : undefined} target="_blank" rel="noreferrer" key={tool.id}>{tool.name}<ExternalLink className="size-4" /></a>)}</div></aside>}
       </div>
-    </section>
+      {planning.footerMessage && <p className="call-footer"><Heart size={13} />{planning.footerMessage}</p>}
+    </section></div></div>
   )
 }
 
@@ -179,19 +185,27 @@ function Planning() {
     return <main className="flex min-h-svh items-center justify-center px-6 text-center text-[#31292d]"><p>{loadError}</p></main>
   }
 
-  const imageLayer = planning.backgroundImage ? { backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity } : {}
+  return <PlanningCanvas planning={planning} onBack={() => navigate('/')} />
+}
 
-  return (
-    <main className={`relative isolate min-h-svh overflow-hidden px-6 py-6.5 sm:px-[8vw] sm:py-10 ${planningPatterns[planning.backgroundPattern] || ''} ${fonts[planning.fontFamily] || fonts.sans} ${sizes[planning.fontSize] || sizes.medium}`} style={{ backgroundColor: planning.backgroundColor, color: planning.textColor, '--accent-color': planning.accentColor }}>
-      {planning.backgroundImage && <div className={`pointer-events-none absolute inset-0 -z-10 bg-cover bg-center bg-no-repeat ${planning.animationEnabled ? backgroundMotions[planning.backgroundMotion] : ''}`} style={{ ...imageLayer, '--animation-duration': animationSpeeds[planning.animationSpeed] || animationSpeeds.normal }} />}
-      <BackgroundIconLayer planning={planning} />
-      <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between text-[.72rem] uppercase tracking-[.16em] opacity-75">
-        <span className="flex items-center gap-2 text-[color:var(--accent-color)]"><Heart className="size-4" fill="currentColor" aria-hidden="true" />rebeca</span>
-        <button className="cursor-pointer transition-all duration-200 hover:translate-x-1" style={{ color: planning.backButtonColor || planning.textColor }} type="button" onClick={() => navigate('/')}>voltar para o começo</button>
-      </header>
-      <div className="relative z-10 mt-16 sm:mt-24"><PlanningView planning={planning} /></div>
-    </main>
-  )
+function Countdown({ date }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
+  const remaining = new Date(date).getTime() - now
+  if (!Number.isFinite(remaining) || remaining <= 0) return null
+  const minutes = Math.floor(remaining / 60000)
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor(minutes % 1440 / 60)
+  return <p className="call-countdown">♡ falta{minutes >= 60 ? 'm' : ''} {days > 0 ? `${days}d ` : ''}{hours > 0 ? `${hours}h ` : ''}{minutes % 60}min para nós</p>
+}
+
+export function PlanningCanvas({ planning, preview = false, onBack }) {
+  return <div className={`planning-canvas ${preview ? 'is-preview' : ''} ${planningPatterns[planning.backgroundPattern] || ''}`} style={{ backgroundColor: planning.backgroundColor, ...(planning.backgroundGradient ? { backgroundImage: `linear-gradient(${planning.backgroundGradientAngle}deg, ${planning.backgroundColor}, ${planning.backgroundGradientColor})` } : {}), color: planning.textColor, '--accent-color': planning.accentColor, fontFamily: fonts[planning.fontFamily] || fonts.sans }}>
+    {planning.backgroundImage && <div className={`planning-image ${planning.animationEnabled ? backgroundMotions[planning.backgroundMotion] : ''}`} style={{ backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity, backgroundPosition: planning.backgroundImagePosition, filter: `blur(${planning.backgroundImageBlur}px)`, '--animation-duration': animationSpeeds[planning.animationSpeed] || animationSpeeds.normal }} />}
+    <BackgroundIconLayer planning={planning} />
+    <header className="call-header"><span><Heart size={15} fill="currentColor" />rebeca</span>{preview ? <span style={{ color: planning.backButtonColor }}>voltar para o começo</span> : <button type="button" style={{ color: planning.backButtonColor }} onClick={onBack}>voltar para o começo</button>}</header>
+    <div className="call-content"><PlanningView planning={planning} /></div>
+  </div>
 }
 
 export default Planning

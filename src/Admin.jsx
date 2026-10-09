@@ -1,229 +1,113 @@
-import { useEffect, useState } from 'react'
-import { ArrowLeft, Check, Heart, Plus, Save, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowDown, ArrowUp, Check, Copy, Heart, Plus, Save, Trash2, Monitor, Smartphone, RotateCcw, Sparkles, Palette, Type, CalendarDays, ListOrdered, Link, Image, WandSparkles, Eye } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ADMIN_AUTHENTICATED_KEY, defaultPlanning, loadPlanning, planningOptions, savePlanning } from './data/planning'
-import { BackgroundIconLayer, PlanningView } from './Planning'
-import { planningPatterns } from './data/planningVisuals'
+import { PlanningCanvas } from './Planning'
+import { themes } from './data/themes'
 
-const backgroundPresets = [
-  ['#fbf8f6', 'Pétala'],
-  ['#fff1f4', 'Rosa'],
-  ['#f2e7ff', 'Lavanda'],
-  ['#e8f7f4', 'Menta'],
-  ['#e8f2ff', 'Céu'],
-  ['#fff4dc', 'Baunilha'],
-  ['#171126', 'Noite neon'],
-  ['#07151b', 'Cyber'],
-  ['#30262a', 'Editorial'],
-]
-
-const adminFonts = {
-  serif: 'Georgia, serif',
-  sans: 'Inter, sans-serif',
-  mono: '"Space Mono", monospace',
-  rounded: '"Nunito", sans-serif',
-  display: '"Bebas Neue", sans-serif',
-  typewriter: '"Special Elite", monospace',
-  pixel: '"Press Start 2P", monospace',
-  handwriting: '"Caveat", cursive',
-  condensed: '"Oswald", sans-serif',
+const tabs = [['content', 'O encontro', CalendarDays], ['themes', 'Temas', Sparkles], ['appearance', 'Aparência', Palette], ['background', 'Fundo', Image], ['motion', 'Movimento', WandSparkles], ['activities', 'Atividades', ListOrdered], ['tools', 'Links e aplicativos', Link]]
+const draftKey = 'rebecca-planning-draft-v2'
+const motionPresets = {
+  none: { animationEnabled: false, panelEntrance: 'none', panelLoop: 'none', iconAnimation: 'none', glowAnimation: 'none' },
+  soft: { panelEntrance: 'rise', panelLoop: 'none', iconAnimation: 'float', animationSpeed: 'normal', animationIntensity: 'subtle', glowAnimation: 'none' },
+  playful: { panelEntrance: 'bounce', panelLoop: 'none', iconAnimation: 'bounce', animationSpeed: 'fast', animationIntensity: 'medium', glowAnimation: 'none' },
+  dramatic: { panelEntrance: 'zoom', panelLoop: 'none', iconAnimation: 'pulse', animationSpeed: 'relaxed', animationIntensity: 'high', glowAnimation: 'soft' },
+  neon: { panelEntrance: 'fade', panelLoop: 'none', iconAnimation: 'pulse', animationSpeed: 'normal', animationIntensity: 'medium', glowAnimation: 'pulse' },
+  game: { panelEntrance: 'slide-left', panelLoop: 'none', iconAnimation: 'swing', animationSpeed: 'fast', animationIntensity: 'medium', glowAnimation: 'none' },
+  cinema: { panelEntrance: 'fade', panelLoop: 'none', iconAnimation: 'none', animationSpeed: 'slow', animationIntensity: 'subtle', glowAnimation: 'soft' },
+  chaos: { panelEntrance: 'glitch', panelLoop: 'sway', iconAnimation: 'glitch', animationSpeed: 'fast', animationIntensity: 'high', glowAnimation: 'flicker' },
 }
 
 function Admin() {
   const navigate = useNavigate()
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true',
-  )
+  const authenticated = localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
   const [planning, setPlanning] = useState(defaultPlanning)
-  const [saved, setSaved] = useState(false)
-  const [uploadError, setUploadError] = useState('')
-  const [loadError, setLoadError] = useState('')
-  const [animationTestKey, setAnimationTestKey] = useState(0)
-  const [isPreviewPinned, setIsPreviewPinned] = useState(false)
+  const [baseline, setBaseline] = useState(null)
+  const [tab, setTab] = useState('content')
+  const [device, setDevice] = useState('desktop')
+  const [status, setStatus] = useState('loading')
+  const [error, setError] = useState('')
+  const [testKey, setTestKey] = useState(0)
+  const [draft, setDraft] = useState(null)
+  const [draftStored, setDraftStored] = useState(false)
+  const saveTimer = useRef(null)
+  const dirty = baseline !== null && JSON.stringify(planning) !== JSON.stringify(baseline)
 
   useEffect(() => {
-    if (!isAuthenticated) navigate('/autenticacao', { replace: true })
-  }, [isAuthenticated, navigate])
-
-  useEffect(() => {
-    if (!isAuthenticated) return undefined
+    if (!authenticated) { navigate('/autenticacao', { replace: true }); return }
     let active = true
-    loadPlanning()
-      .then((loadedPlanning) => {
-        if (active) setPlanning(loadedPlanning)
-      })
-      .catch((error) => {
-        console.error(error)
-        if (active) setLoadError(error.message || 'Não foi possível carregar a configuração.')
-      })
-    return () => { active = false }
-  }, [isAuthenticated])
+    loadPlanning().then(value => {
+      if (!active) return
+      setPlanning(value); setBaseline(value); setStatus('ready')
+      try { const cached = JSON.parse(localStorage.getItem(draftKey)); if (cached && JSON.stringify(cached) !== JSON.stringify(value)) setDraft(cached) } catch { localStorage.removeItem(draftKey) }
+    }).catch(err => { if (active) { setError(err.message || 'Não foi possível carregar a call.'); setStatus('error') } })
+    return () => { active = false; window.clearTimeout(saveTimer.current) }
+  }, [authenticated, navigate])
 
-  const update = (key, value) => setPlanning((current) => ({ ...current, [key]: value }))
+  useEffect(() => {
+    if (!dirty) return
+    const timer = window.setTimeout(() => {
+      try { localStorage.setItem(draftKey, JSON.stringify(planning)); setDraftStored(true) } catch { setError('O armazenamento de rascunho está cheio. Salve as alterações para não perdê-las.') }
+    }, 500)
+    const warn = event => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => { window.clearTimeout(timer); window.removeEventListener('beforeunload', warn) }
+  }, [planning, dirty])
 
-  const handleSave = (event) => {
+  const update = (key, value) => { setDraftStored(false); setPlanning(current => ({ ...current, [key]: value })); if (status === 'saved') setStatus('ready') }
+  const patch = values => { setDraftStored(false); setPlanning(current => ({ ...current, ...values })); setStatus('ready') }
+  const save = async event => {
     event.preventDefault()
-    savePlanning(planning)
-      .then(() => {
-        setSaved(true)
-        window.setTimeout(() => setSaved(false), 2200)
-      })
-      .catch(() => setUploadError('Não foi possível salvar no Supabase.'))
+    if (status === 'saving' || !baseline) return
+    if (!planning.title.trim() || !planning.date) { setTab('content'); setError('Preencha o título e a data do encontro.'); return }
+    if (planning.activities.some(item => !item.name.trim())) { setTab('activities'); setError('Dê um nome a cada atividade antes de salvar.'); return }
+    if (planning.tools.some(item => !item.name.trim() || (item.url && !/^https?:\/\//i.test(item.url)))) { setTab('tools'); setError('Preencha o nome de cada link e use um endereço iniciado por https:// ou http://.'); return }
+    setStatus('saving'); setError('')
+    const snapshot = structuredClone(planning)
+    try {
+      await savePlanning(snapshot); setBaseline(snapshot); setStatus('saved'); localStorage.removeItem(draftKey)
+      saveTimer.current = window.setTimeout(() => setStatus('ready'), 3000)
+    } catch { setStatus('ready'); setError('Não foi possível salvar. Seu rascunho foi mantido; tente novamente.') }
   }
-
-  const updateActivity = (id, key, value) => {
-    update('activities', planning.activities.map((activity) => (
-      activity.id === id ? { ...activity, [key]: value } : activity
-    )))
-  }
-
-  const handleBackgroundImage = (event) => {
+  const select = (key, label, options = planningOptions[key]) => <label key={key}>{label}<select className="admin-input" value={planning[key]} onChange={e => update(key, e.target.value)}>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
+  const range = (key, label, min, max, step = 1, unit = '') => <label key={key} className="range-field"><span>{label}<output>{planning[key]}{unit}</output></span><input type="range" min={min} max={max} step={step} value={planning[key]} onChange={e => update(key, Number(e.target.value))} /></label>
+  const toggle = (key, label, description) => <label className="toggle-field"><span>{label}{description && <small>{description}</small>}</span><input type="checkbox" checked={planning[key]} onChange={e => update(key, e.target.checked)} /></label>
+  const text = (key, label) => <label key={key}>{label}<input className="admin-input" maxLength={120} value={planning[key]} onChange={e => update(key, e.target.value)} /></label>
+  const color = (key, label) => <label key={key}>{label}<div className="color-field"><input aria-label={label} type="color" value={planning[key]} onChange={e => update(key, e.target.value)} /><span>{planning[key]}</span></div></label>
+  const upload = event => {
     const file = event.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Escolha um arquivo de imagem.')
-      return
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      setUploadError('A imagem precisa ter no máximo 4 MB.')
-      return
-    }
-
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 4 * 1024 * 1024) { setError('Escolha uma imagem JPG, PNG, WebP ou GIF de até 4 MB.'); return }
     const reader = new FileReader()
-    reader.onload = () => {
-      setUploadError('')
-      update('backgroundImage', reader.result)
-    }
+    reader.onload = () => { update('backgroundImage', reader.result); setError('') }
+    reader.onerror = () => setError('Não foi possível ler a imagem. Tente outro arquivo.')
     reader.readAsDataURL(file)
   }
+  const editItem = (collection, id, key, value) => update(collection, planning[collection].map(item => item.id === id ? { ...item, [key]: value } : item))
+  const move = (index, direction) => { const items = [...planning.activities]; [items[index], items[index + direction]] = [items[index + direction], items[index]]; update('activities', items) }
+  if (!authenticated) return null
 
-  if (!isAuthenticated) return null
-  if (loadError) return <main className="flex min-h-svh items-center justify-center px-6 text-center text-[#31292d]"><p>{loadError}</p></main>
-
-  const adminStyle = {
-    backgroundColor: planning.backgroundColor,
-    color: planning.textColor,
-    fontFamily: adminFonts[planning.fontFamily] || adminFonts.sans,
-  }
-  const sectionStyle = {
-    backgroundColor: `${planning.backgroundColor}e8`,
-    borderColor: planning.accentColor,
-  }
-
-  return (
-    <main className="relative min-h-svh overflow-hidden px-5 py-6 sm:px-10" style={adminStyle}>
-      {planning.backgroundImage && <div className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity }} />}
-      <div className="relative z-10">
-      <header className="mx-auto flex max-w-6xl items-center justify-between">
-        <button className="flex cursor-pointer items-center gap-2 text-sm text-[#88777c] transition-all duration-200 hover:-translate-x-1 hover:text-[#965365]" type="button" onClick={() => navigate('/')}><ArrowLeft className="size-4" />Voltar</button>
-        <span className="flex items-center gap-2 text-xs uppercase tracking-[.16em] text-[#965365]"><Heart className="size-4 text-[#bd7184]" fill="currentColor" />painel da call</span>
-        <button className="cursor-pointer text-xs uppercase tracking-[.16em] text-[#88777c] transition-all duration-200 hover:translate-x-1 hover:text-[#965365]" type="button" onClick={() => { localStorage.removeItem(ADMIN_AUTHENTICATED_KEY); setIsAuthenticated(false) }}>logout</button>
-      </header>
-
-      <form className="mx-auto mt-12 max-w-6xl space-y-8" onSubmit={handleSave}>
-        <div className="flex flex-wrap items-end justify-between gap-5">
-          <div><p className="text-xs uppercase tracking-[.2em] text-[#bd7184]">configuração local</p><h1 className="mt-2 font-serif text-5xl font-normal tracking-[-.05em]">Planejamento</h1></div>
-          <button className="flex cursor-pointer items-center gap-2 rounded-full bg-[#bd7184] px-5 py-3 text-sm text-white transition-all duration-200 hover:-translate-y-1 hover:bg-[#a96074]" type="submit">{saved ? <Check className="size-4" /> : <Save className="size-4" />}{saved ? 'Salvo' : 'Salvar alterações'}</button>
-        </div>
-
-        <section className={isPreviewPinned
-          ? 'fixed inset-x-4 bottom-4 z-50 max-h-[82vh] overflow-auto rounded-3xl bg-[#31292d] p-4 text-[#fffaf9] shadow-[0_18px_50px_rgba(49,41,45,.35)] sm:inset-x-auto sm:right-6 sm:top-6 sm:bottom-auto sm:w-[min(560px,calc(100vw-3rem))] sm:p-6'
-          : 'relative z-20 rounded-3xl bg-[#31292d] p-4 text-[#fffaf9] shadow-[0_12px_30px_rgba(49,41,45,.16)] sm:p-6'}>
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div><p className="text-xs uppercase tracking-[.2em] text-[#f0a8b8]">preview ao vivo</p><h2 className="mt-1 font-serif text-3xl font-normal">Assim ela vai ver</h2></div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                className="cursor-pointer rounded-full border border-white/25 px-3 py-1 text-xs text-white/75 transition-all duration-200 hover:-translate-y-0.5 hover:border-white hover:text-white"
-                type="button"
-                onClick={() => setIsPreviewPinned((current) => !current)}
-              >
-                {isPreviewPinned ? 'desafixar preview' : 'fixar preview'}
-              </button>
-              <span className="rounded-full border border-white/20 px-3 py-1 text-xs text-white/60">preview ao vivo</span>
-            </div>
-          </div>
-          <div className="overflow-hidden rounded-[2rem]">
-            <div className={`relative p-4 ${planningPatterns[planning.backgroundPattern] || ''}`} style={{ backgroundColor: planning.backgroundColor, color: planning.textColor, '--accent-color': planning.accentColor }}>
-              {planning.backgroundImage && <div className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity }} />}
-              <BackgroundIconLayer planning={planning} />
-              <div className="relative z-10">
-              <div key={animationTestKey}>
-                <PlanningView planning={planning} preview />
-              </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-5 rounded-3xl border p-6 sm:grid-cols-2 sm:p-8" style={sectionStyle}>
-          <label className="sm:col-span-2">Título<input className="admin-input" value={planning.title} onChange={(event) => update('title', event.target.value)} /></label>
-          <label className="sm:col-span-2">Subtítulo<textarea className="admin-input min-h-24" value={planning.subtitle} onChange={(event) => update('subtitle', event.target.value)} /></label>
-          <label>Data e hora<input className="admin-input" type="datetime-local" value={planning.date} onChange={(event) => update('date', event.target.value)} /></label>
-          <label>Cor do fundo<div className="mt-2 flex flex-wrap gap-2">{backgroundPresets.map(([color, label]) => <button className="flex cursor-pointer items-center gap-1.5 rounded-full border border-[#e8dfe0] px-2 py-1 text-xs transition-transform hover:scale-105" type="button" key={color} onClick={() => update('backgroundColor', color)}><span className="size-4 rounded-full border border-black/10" style={{ backgroundColor: color }} />{label}</button>)}</div><div className="mt-3 flex gap-3"><input className="h-12 w-16 cursor-pointer rounded-lg border-0 p-1" type="color" value={planning.backgroundColor} onChange={(event) => update('backgroundColor', event.target.value)} /><input className="admin-input mt-0 flex-1" value={planning.backgroundColor} onChange={(event) => update('backgroundColor', event.target.value)} /></div></label>
-          <label>Cor do texto<div className="mt-2 flex gap-3"><input className="h-12 w-16 cursor-pointer rounded-lg border-0 p-1" type="color" value={planning.textColor} onChange={(event) => update('textColor', event.target.value)} /><input className="admin-input mt-0 flex-1" value={planning.textColor} onChange={(event) => update('textColor', event.target.value)} /></div></label>
-          <label>Cor de destaque<div className="mt-2 flex gap-3"><input className="h-12 w-16 cursor-pointer rounded-lg border-0 p-1" type="color" value={planning.accentColor} onChange={(event) => update('accentColor', event.target.value)} /><input className="admin-input mt-0 flex-1" value={planning.accentColor} onChange={(event) => update('accentColor', event.target.value)} /></div></label>
-          <label>Cor do texto “planejamento da ligação”<div className="mt-2 flex gap-3"><input className="h-12 w-16 cursor-pointer rounded-lg border-0 p-1" type="color" value={planning.planningLabelColor} onChange={(event) => update('planningLabelColor', event.target.value)} /><input className="admin-input mt-0 flex-1" value={planning.planningLabelColor} onChange={(event) => update('planningLabelColor', event.target.value)} /></div></label>
-          <label>Cor do texto “voltar para o começo”<div className="mt-2 flex gap-3"><input className="h-12 w-16 cursor-pointer rounded-lg border-0 p-1" type="color" value={planning.backButtonColor} onChange={(event) => update('backButtonColor', event.target.value)} /><input className="admin-input mt-0 flex-1" value={planning.backButtonColor} onChange={(event) => update('backButtonColor', event.target.value)} /></div></label>
-          <label>Padrão do fundo<select className="admin-input" value={planning.backgroundPattern} onChange={(event) => update('backgroundPattern', event.target.value)}>{planningOptions.backgroundPatterns.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label className="sm:col-span-2 flex items-center gap-2"><input className="size-4 cursor-pointer accent-[#bd7184]" type="checkbox" checked={planning.backgroundIconEnabled} onChange={(event) => update('backgroundIconEnabled', event.target.checked)} />Ativar ícones repetidos no fundo</label>
-          <label>Ícone repetido<select className="admin-input" value={planning.backgroundIcon} onChange={(event) => update('backgroundIcon', event.target.value)}>{planningOptions.backgroundIcons.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Cor dos ícones<div className="mt-2 flex gap-3"><input className="h-12 w-16 cursor-pointer rounded-lg border-0 p-1" type="color" value={planning.backgroundIconColor} onChange={(event) => update('backgroundIconColor', event.target.value)} /><input className="admin-input mt-0 flex-1" value={planning.backgroundIconColor} onChange={(event) => update('backgroundIconColor', event.target.value)} /></div></label>
-          <label>Tamanho dos ícones<input className="mt-4 w-full cursor-pointer accent-[#bd7184]" type="range" min="8" max="96" step="2" value={planning.backgroundIconSize} onChange={(event) => update('backgroundIconSize', Number(event.target.value))} /></label>
-          <label>Opacidade dos ícones<input className="mt-4 w-full cursor-pointer accent-[#bd7184]" type="range" min="0.03" max="0.8" step="0.01" value={planning.backgroundIconOpacity} onChange={(event) => update('backgroundIconOpacity', Number(event.target.value))} /></label>
-          <label>Espaçamento<input className="mt-4 w-full cursor-pointer accent-[#bd7184]" type="range" min="30" max="180" step="6" value={planning.backgroundIconSpacing} onChange={(event) => update('backgroundIconSpacing', Number(event.target.value))} /></label>
-          <label>Rotação<input className="mt-4 w-full cursor-pointer accent-[#bd7184]" type="range" min="-180" max="180" step="5" value={planning.backgroundIconRotation} onChange={(event) => update('backgroundIconRotation', Number(event.target.value))} /></label>
-          <label>Estilo<select className="admin-input" value={planning.style} onChange={(event) => update('style', event.target.value)}>{planningOptions.styles.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Fonte<select className="admin-input" value={planning.fontFamily} onChange={(event) => update('fontFamily', event.target.value)}>{planningOptions.fonts.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Tamanho<select className="admin-input" value={planning.fontSize} onChange={(event) => update('fontSize', event.target.value)}>{planningOptions.sizes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Ícone do tema<select className="admin-input" value={planning.gameIcon} onChange={(event) => update('gameIcon', event.target.value)}>{planningOptions.gameIcons.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Formato do painel<select className="admin-input" value={planning.panelShape} onChange={(event) => update('panelShape', event.target.value)}>{planningOptions.panelShapes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label className="sm:col-span-2">Imagem de fundo<input className="admin-input cursor-pointer file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-[#bd7184] file:px-3 file:py-2 file:text-white" type="file" accept="image/*" onChange={handleBackgroundImage} />{uploadError && <span className="mt-2 block text-xs text-[#965365]">{uploadError}</span>}{planning.backgroundImage && <button className="mt-2 cursor-pointer text-xs text-[#965365] underline transition-opacity hover:opacity-60" type="button" onClick={() => update('backgroundImage', '')}>remover imagem</button>}</label>
-          <label>Opacidade da imagem<input className="mt-4 w-full cursor-pointer accent-[#bd7184]" type="range" min="0.05" max="1" step="0.05" value={planning.backgroundImageOpacity} onChange={(event) => update('backgroundImageOpacity', Number(event.target.value))} /></label>
-        </section>
-
-        <section className="grid gap-5 rounded-3xl border p-6 sm:grid-cols-2 sm:p-8" style={sectionStyle}>
-          <div className="sm:col-span-2 flex items-center justify-between gap-4">
-            <div><p className="text-xs uppercase tracking-[.2em]" style={{ color: planning.accentColor }}>movimento</p><h2 className="mt-1 font-serif text-3xl">Animações</h2></div>
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <button
-                className="cursor-pointer rounded-full border border-[#bd7184] px-3 py-2 text-xs text-[#965365] transition-all duration-200 hover:-translate-y-1 hover:bg-[#bd7184] hover:text-white"
-                type="button"
-                onClick={() => setAnimationTestKey((current) => current + 1)}
-              >
-                testar animações
-              </button>
-              <label className="flex items-center gap-2"><input className="size-4 cursor-pointer accent-[#bd7184]" type="checkbox" checked={planning.animationEnabled} onChange={(event) => update('animationEnabled', event.target.checked)} />Ativar animações</label>
-            </div>
-          </div>
-          <label>Preset de animação<select className="admin-input" value={planning.animationPreset} onChange={(event) => update('animationPreset', event.target.value)}>{planningOptions.animationPresets.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Velocidade<select className="admin-input" value={planning.animationSpeed} onChange={(event) => update('animationSpeed', event.target.value)}>{planningOptions.animationSpeeds.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Intensidade<select className="admin-input" value={planning.animationIntensity} onChange={(event) => update('animationIntensity', event.target.value)}>{planningOptions.animationIntensities.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Atraso de entrada<input className="mt-4 w-full cursor-pointer accent-[#bd7184]" type="range" min="0" max="3" step="0.1" value={planning.animationDelay} onChange={(event) => update('animationDelay', Number(event.target.value))} /></label>
-          <label>Entrada do painel<select className="admin-input" value={planning.panelEntrance} onChange={(event) => update('panelEntrance', event.target.value)}>{planningOptions.panelEntrances.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Movimento contínuo<select className="admin-input" value={planning.panelLoop} onChange={(event) => update('panelLoop', event.target.value)}>{planningOptions.panelLoops.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Animação dos ícones<select className="admin-input" value={planning.iconAnimation} onChange={(event) => update('iconAnimation', event.target.value)}>{planningOptions.iconAnimations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Hover do painel<select className="admin-input" value={planning.hoverAnimation} onChange={(event) => update('hoverAnimation', event.target.value)}>{planningOptions.hoverAnimations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Movimento do fundo<select className="admin-input" value={planning.backgroundMotion} onChange={(event) => update('backgroundMotion', event.target.value)}>{planningOptions.backgroundMotions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label>Brilho animado<select className="admin-input" value={planning.glowAnimation} onChange={(event) => update('glowAnimation', event.target.value)}>{planningOptions.glowAnimations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-          <label className="flex items-center gap-2"><input className="size-4 cursor-pointer accent-[#bd7184]" type="checkbox" checked={planning.iconStagger} onChange={(event) => update('iconStagger', event.target.checked)} />Espalhar atraso entre ícones</label>
-        </section>
-
-        <section className="rounded-3xl border p-6 sm:p-8" style={sectionStyle}>
-          <div className="flex items-center justify-between gap-4"><h2 className="font-serif text-3xl">Atividades</h2><label className="flex items-center gap-2 text-sm text-[#88777c]"><input type="checkbox" checked={planning.showDurations} onChange={(event) => update('showDurations', event.target.checked)} />Mostrar duração</label></div>
-          <div className="mt-6 space-y-3">
-            {planning.activities.map((activity) => <div className="flex gap-2" key={activity.id}><input className="admin-input" value={activity.name} onChange={(event) => updateActivity(activity.id, 'name', event.target.value)} /><input className="admin-input max-w-32" value={activity.duration} onChange={(event) => updateActivity(activity.id, 'duration', event.target.value)} /><button className="cursor-pointer px-3 text-[#965365] transition-transform duration-200 hover:scale-110" type="button" onClick={() => update('activities', planning.activities.filter((item) => item.id !== activity.id))}><Trash2 className="size-4" /></button></div>)}
-            <button className="flex cursor-pointer items-center gap-2 text-sm text-[#965365] transition-all duration-200 hover:translate-x-1" type="button" onClick={() => update('activities', [...planning.activities, { id: Date.now(), name: 'Nova atividade', duration: '15 min' }])}><Plus className="size-4" />Adicionar atividade</button>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border p-6 sm:p-8" style={sectionStyle}>
-          <label className="flex items-center gap-2 text-sm text-[#88777c]"><input type="checkbox" checked={planning.showTools} onChange={(event) => update('showTools', event.target.checked)} />Mostrar aplicativos e links</label>
-          {planning.showTools && <div className="mt-6 space-y-3">{planning.tools.map((tool) => <div className="flex gap-2" key={tool.id}><input className="admin-input" value={tool.name} onChange={(event) => update('tools', planning.tools.map((item) => item.id === tool.id ? { ...item, name: event.target.value } : item))} /><input className="admin-input" value={tool.url} onChange={(event) => update('tools', planning.tools.map((item) => item.id === tool.id ? { ...item, url: event.target.value } : item))} placeholder="https://" /></div>)}</div>}
-        </section>
-      </form>
-      </div>
-    </main>
-  )
+  return <main className="studio-shell">
+    <header className="studio-header"><button type="button" className="text-button" onClick={() => navigate('/')}><ArrowLeft size={16} />Voltar</button><span className="studio-brand"><Heart size={16} fill="currentColor" />um cantinho só nosso <span>/</span> painel da call</span><button className="text-button" type="button" onClick={() => { localStorage.removeItem(ADMIN_AUTHENTICATED_KEY); navigate('/autenticacao') }}>logout</button></header>
+    <form onSubmit={save} className="studio-main">
+      <div className="studio-heading"><div><p className="eyebrow">feito por você, para ela</p><h1>Um encontro com a nossa cara<span>.</span></h1><p>Planeje os detalhes. Dê seu toque. Deixe o carinho aparecer.</p></div><button className="studio-save" disabled={!baseline || status === 'saving' || !dirty} type="submit">{status === 'saved' ? <Check size={17} /> : <Save size={17} />}{status === 'saving' ? 'Salvando…' : status === 'saved' ? 'Alterações salvas' : 'Salvar alterações'}</button></div>
+      <div className="studio-status" role="status"><span className={dirty ? 'status-dot unsaved' : 'status-dot'} />{status === 'loading' ? 'Carregando sua call…' : dirty ? `Alterações ainda não publicadas · ${draftStored ? 'rascunho salvo neste navegador' : 'salvando rascunho…'}` : 'Tudo em dia · sua call está salva'}{dirty && <button type="button" onClick={() => { setPlanning(baseline); localStorage.removeItem(draftKey); setStatus('ready') }}><RotateCcw size={13} />Desfazer alterações</button>}</div>
+      {error && <div className="studio-notice" role="alert">{error}</div>}
+      {draft && <div className="studio-notice">Você tem um rascunho deste navegador.<button type="button" onClick={() => { patch({ ...defaultPlanning, ...draft }); setDraft(null) }}>Recuperar rascunho</button><button type="button" onClick={() => { localStorage.removeItem(draftKey); setDraft(null) }}>Descartar rascunho</button></div>}
+      <div className="studio-grid"><div className="studio-editor">
+        <nav className="editor-tabs" aria-label="Seções do editor">{tabs.map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}><Icon size={16} />{label}</button>)}</nav>
+        <fieldset disabled={!baseline || status === 'saving'} className="editor-card">
+          <div className="editor-section-heading"><p className="eyebrow">os pequenos detalhes fazem a diferença</p><h2>{tabs.find(item => item[0] === tab)[1]}</h2></div>
+          {tab === 'content' && <><label>Título da call<input className="admin-input" required maxLength={160} value={planning.title} onChange={e => update('title', e.target.value)} /></label><label>Uma mensagem para ela<textarea className="admin-input" rows={4} value={planning.subtitle} onChange={e => update('subtitle', e.target.value)} /></label><div className="field-grid"><label>Data e hora<input className="admin-input" required type="datetime-local" value={planning.date} onChange={e => update('date', e.target.value)} /></label><label>Mensagem de encerramento<input className="admin-input" value={planning.footerMessage} onChange={e => update('footerMessage', e.target.value)} /></label></div><div className="field-grid">{text('planningLabel', 'Etiqueta acima do título')}{text('activitiesLabel', 'Título das atividades')}{text('toolsLabel', 'Título dos links')}</div>{toggle('showPlanningLabel', 'Mostrar etiqueta acima do título')}{toggle('showDate', 'Mostrar data e hora')}{toggle('showCountdown', 'Contagem regressiva', 'O tempo que falta para nosso encontro.')}</>}
+          {tab === 'themes' && <><p className="section-help">Um ponto de partida pensado com carinho. O tema muda só o visual; os detalhes do encontro continuam seus.</p><div className="theme-grid">{themes.map(theme => <button type="button" className="theme-card" key={theme.name} onClick={() => patch({ backgroundColor: theme.colors[0], textColor: theme.colors[1], accentColor: theme.colors[2], planningLabelColor: theme.colors[2], backButtonColor: theme.colors[1], panelColor: theme.panelColor || '#ffffff', style: theme.style, fontFamily: theme.font, backgroundPattern: theme.pattern, gameIcon: theme.icon, panelShape: 'rounded', panelOpacity: theme.style === 'custom' ? 1 : .75, backgroundImage: '', backgroundIconEnabled: false })}><span className="theme-sample" style={{ background: theme.colors[0], color: theme.colors[1] }}><span style={{ color: theme.colors[2] }}>♡</span><span style={{ fontFamily: theme.font === 'mono' ? 'monospace' : 'Georgia, serif' }}>Nós, sem pressa.</span><i style={{ background: theme.colors[2] }} /></span><strong>{theme.name}</strong><small>{theme.note}</small></button>)}</div></>}
+          {tab === 'appearance' && <><h3><Palette size={16} />Paleta de cores</h3><div className="field-grid">{color('backgroundColor', 'Fundo')}{color('textColor', 'Texto')}{color('accentColor', 'Destaques')}{color('planningLabelColor', 'Etiqueta do encontro')}{color('backButtonColor', 'Botão de voltar')}{color('panelColor', 'Painel personalizado')}</div><h3><Type size={16} />Tipografia e composição</h3><div className="field-grid">{select('style', 'Acabamento', planningOptions.styles)}{select('fontFamily', 'Fonte', planningOptions.fonts)}{select('fontSize', 'Tamanho do texto', planningOptions.sizes)}{select('textAlign', 'Alinhamento', [['left', 'À esquerda'], ['center', 'Centralizado']])}{select('gameIcon', 'Ícone do encontro', planningOptions.gameIcons)}{select('panelShape', 'Formato', planningOptions.panelShapes)}</div>{range('titleSize', 'Tamanho do título', 32, 100, 2, ' px')}<div className="field-grid">{select('titleWeight', 'Peso do título', [['400', 'Normal'], ['600', 'Seminegrito'], ['700', 'Negrito']])}{select('panelShadow', 'Sombra do painel', [['theme', 'Do acabamento'], ['none', 'Sem sombra'], ['soft', 'Suave'], ['deep', 'Marcante'], ['glow', 'Brilho na cor de destaque']])}{select('panelBorderStyle', 'Borda', [['solid', 'Contínua'], ['dashed', 'Tracejada'], ['dotted', 'Pontilhada'], ['double', 'Dupla']])}</div>{range('titleSpacing', 'Espaçamento entre letras do título', -.08, .08, .01, ' em')}{range('textLineHeight', 'Altura das linhas', 1.2, 2.2, .1)}{range('panelBorderWidth', 'Espessura da borda', 0, 6, 1, ' px')}{range('panelWidth', 'Largura máxima', 600, 1200, 20, ' px')}{range('panelPadding', 'Respiro do painel', 20, 80, 2, ' px')}{range('panelOpacity', 'Opacidade do painel personalizado', .1, 1, .05)}{range('customFontSize', 'Texto em tamanho personalizado', 12, 32, 1, ' px')}<p className="section-help">A cor e a opacidade do painel se aplicam ao acabamento “Personalizado”.</p></>}
+          {tab === 'background' && <>{toggle('backgroundGradient', 'Fundo em degradê', 'Combine a cor de fundo com uma segunda cor.')}{planning.backgroundGradient && <>{color('backgroundGradientColor', 'Segunda cor')}{range('backgroundGradientAngle', 'Direção do degradê', 0, 360, 15, '°')}</>}<div className="field-grid">{select('backgroundPattern', 'Textura', planningOptions.backgroundPatterns)}{select('backgroundImagePosition', 'Enquadramento da imagem', [['center', 'Centro'], ['top', 'Topo'], ['bottom', 'Base'], ['left', 'Esquerda'], ['right', 'Direita']])}</div><label className="upload-zone"><Image size={24} /><strong>{planning.backgroundImage ? 'Trocar imagem de fundo' : 'Escolha uma imagem especial'}</strong><small>JPG, PNG, WebP ou GIF · até 4 MB</small><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={upload} /></label>{planning.backgroundImage && <button type="button" className="text-button" onClick={() => update('backgroundImage', '')}><Trash2 size={14} />Remover imagem</button>}{range('backgroundImageOpacity', 'Opacidade da imagem', .05, 1, .05)}{range('backgroundImageBlur', 'Desfoque', 0, 20, 1, ' px')}{toggle('backgroundIconEnabled', 'Ícones no fundo', 'Uma textura feita com seus símbolos favoritos.')}{planning.backgroundIconEnabled && <><div className="field-grid">{select('backgroundIcon', 'Símbolo', planningOptions.backgroundIcons)}{color('backgroundIconColor', 'Cor dos símbolos')}</div>{range('backgroundIconSize', 'Tamanho', 8, 96, 2, ' px')}{range('backgroundIconOpacity', 'Opacidade', .03, .8, .01)}{range('backgroundIconSpacing', 'Espaçamento', 30, 180, 6, ' px')}{range('backgroundIconRotation', 'Rotação', -180, 180, 5, '°')}</>}</>}
+          {tab === 'motion' && <>{toggle('animationEnabled', 'Ativar animações', 'A preferência de movimento reduzido do dispositivo é respeitada.')}<label>Combinação de movimento<select className="admin-input" value={planning.animationPreset} onChange={e => patch({ animationEnabled: true, animationPreset: e.target.value, ...motionPresets[e.target.value] })}>{planningOptions.animationPresets.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><div className="field-grid">{select('animationSpeed', 'Velocidade', planningOptions.animationSpeeds)}{select('animationIntensity', 'Intensidade', planningOptions.animationIntensities)}{select('panelEntrance', 'Entrada', planningOptions.panelEntrances)}{select('panelLoop', 'Movimento contínuo', planningOptions.panelLoops)}{select('iconAnimation', 'Animação dos ícones', planningOptions.iconAnimations)}{select('hoverAnimation', 'Ao passar o mouse', planningOptions.hoverAnimations)}{select('backgroundMotion', 'Movimento da imagem', planningOptions.backgroundMotions)}{select('glowAnimation', 'Brilho', planningOptions.glowAnimations)}</div>{range('animationDelay', 'Atraso de entrada', 0, 3, .1, ' s')}{toggle('iconStagger', 'Variar o tempo dos ícones')}<button className="secondary-button" type="button" onClick={() => setTestKey(value => value + 1)}><WandSparkles size={16} />Reproduzir animações</button></>}
+          {tab === 'activities' && <>{toggle('showDurations', 'Mostrar duração')}{toggle('showActivityNumbers', 'Numerar as atividades')}<div className="field-grid">{select('activityLayout', 'Apresentação do roteiro', [['list', 'Lista clássica'], ['cards', 'Cartões'], ['timeline', 'Linha do tempo']])}</div>{range('activityGap', 'Espaço entre atividades', 0, 32, 2, ' px')}<p className="section-help">Monte o roteiro do encontro. Você pode mudar a ordem, duplicar e acrescentar uma descrição.</p><div className="item-list">{planning.activities.map((item, index) => <div className="activity-editor" key={item.id}><div className="item-heading"><span>ATIVIDADE {String(index + 1).padStart(2, '0')}</span><div><button aria-label="Mover para cima" disabled={index === 0} type="button" onClick={() => move(index, -1)}><ArrowUp size={15} /></button><button aria-label="Mover para baixo" disabled={index === planning.activities.length - 1} type="button" onClick={() => move(index, 1)}><ArrowDown size={15} /></button><button aria-label="Duplicar atividade" type="button" onClick={() => update('activities', [...planning.activities.slice(0, index + 1), { ...item, id: crypto.randomUUID() }, ...planning.activities.slice(index + 1)])}><Copy size={15} /></button><button aria-label="Excluir atividade" type="button" onClick={() => update('activities', planning.activities.filter(value => value.id !== item.id))}><Trash2 size={15} /></button></div></div><div className="field-grid"><label>Atividade<input className="admin-input" required value={item.name} onChange={e => editItem('activities', item.id, 'name', e.target.value)} /></label><label>Duração<input className="admin-input" placeholder="30 min" value={item.duration} onChange={e => editItem('activities', item.id, 'duration', e.target.value)} /></label></div><label>Descrição <span className="optional">opcional</span><textarea className="admin-input" rows={2} value={item.description || ''} onChange={e => editItem('activities', item.id, 'description', e.target.value)} /></label></div>)}</div><button type="button" className="secondary-button" onClick={() => update('activities', [...planning.activities, { id: crypto.randomUUID(), name: '', duration: '15 min', description: '' }])}><Plus size={16} />Adicionar atividade</button></>}
+          {tab === 'tools' && <>{toggle('showTools', 'Mostrar aplicativos e links', 'Deixe tudo pronto para quando ela chegar.')}<div className="item-list">{planning.tools.map(item => <div className="activity-editor" key={item.id}><div className="item-heading"><span>LINK DO ENCONTRO</span><button aria-label="Excluir link" type="button" onClick={() => update('tools', planning.tools.filter(value => value.id !== item.id))}><Trash2 size={15} /></button></div><label>Nome<input className="admin-input" required value={item.name} onChange={e => editItem('tools', item.id, 'name', e.target.value)} /></label><label>Endereço<input className="admin-input" type="url" pattern="https?://.*" placeholder="https://" value={item.url} onChange={e => editItem('tools', item.id, 'url', e.target.value)} /></label></div>)}</div><button className="secondary-button" type="button" onClick={() => update('tools', [...planning.tools, { id: crypto.randomUUID(), name: '', url: '' }])}><Plus size={16} />Adicionar link</button></>}
+        </fieldset>
+      </div><aside className="preview-column"><div className="preview-toolbar"><div><Eye size={15} /><span>Assim ela vai ver</span><i /></div><div className="device-switch"><button type="button" aria-label="Prévia desktop" aria-pressed={device === 'desktop'} className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')}><Monitor size={16} /></button><button type="button" aria-label="Prévia celular" aria-pressed={device === 'mobile'} className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')}><Smartphone size={16} /></button></div></div><div className={`preview-stage ${device}`}><PlanningCanvas planning={planning} key={testKey} preview /></div><p className="preview-caption"><Heart size={12} />Cada detalhe, um jeito de dizer que você se importa.</p></aside></div>
+    </form>
+  </main>
 }
-
 export default Admin
