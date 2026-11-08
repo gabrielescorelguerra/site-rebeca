@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Heart } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { randomAffectionateName, randomAffectionatePhrase } from './utils/random'
-import { ADMIN_AUTHENTICATED_KEY, AUTHENTICATED_KEY } from './data/planning'
+import { useAccess, logout } from './lib/access'
 
 function getGreeting(hour) {
   if (hour >= 5 && hour < 12) return 'Bom dia'
@@ -12,10 +12,7 @@ function getGreeting(hour) {
 
 function App() {
   const [isOpening, setIsOpening] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
-      || localStorage.getItem(AUTHENTICATED_KEY) === 'true',
-  )
+  const { admin, authenticated: isAuthenticated } = useAccess()
   const navigate = useNavigate()
   const mainMessage = useMemo(() => {
     const now = new Date()
@@ -30,19 +27,15 @@ function App() {
 
   const handleNextCall = () => {
     setIsOpening(true)
-    const destination = localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
+    const destination = admin
       ? '/admin'
-      : localStorage.getItem(AUTHENTICATED_KEY) === 'true'
+      : isAuthenticated
         ? '/planejamento'
         : '/autenticacao'
     navigate(destination)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem(ADMIN_AUTHENTICATED_KEY)
-    localStorage.removeItem(AUTHENTICATED_KEY)
-    setIsAuthenticated(false)
-  }
+  const handleLogout = logout
 
   return (
     <main className="welcome-shell site-shell flex min-h-svh flex-col px-6 py-6.5 text-[#31292d] sm:px-[6vw] sm:py-9.5">

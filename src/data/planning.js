@@ -6,6 +6,7 @@ export const AUTHENTICATED_KEY = 'rebecca-authenticated'
 export const ADMIN_AUTHENTICATED_KEY = 'rebecca-admin-authenticated'
 
 export const defaultPlanning = {
+  hasPlannedCall: true,
   showActivities: true,
   showSubtitle: true,
   sectionLayout: 'columns',

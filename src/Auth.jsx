@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { randomAffectionatePhrase } from './utils/random'
 import { ADMIN_AUTHENTICATED_KEY, AUTHENTICATED_KEY } from './data/planning'
 
+import { useAccess, notifyLogin } from './lib/access'
+
 const NORMAL_NAME = 'rebeca pereira da silva'
 const ADMIN_NAME = 'admin'
 const AUTHORIZED_BIRTH_DATE = '2006-07-04'
@@ -16,18 +18,15 @@ function Auth() {
   const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem(AUTHENTICATED_KEY) === 'true'
-      || localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true',
-  )
+  const { admin, authenticated: isAuthenticated } = useAccess()
 
   useEffect(() => {
-    if (localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true') {
+    if (admin) {
       navigate(destination || '/admin', { replace: true })
     } else if (isAuthenticated) {
       navigate(destination || '/planejamento', { replace: true })
     }
-  }, [isAuthenticated, navigate, destination])
+  }, [admin, isAuthenticated, navigate, destination])
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -43,7 +42,7 @@ function Auth() {
     const isAdmin = normalizedName === ADMIN_NAME
     localStorage.setItem(isAdmin ? ADMIN_AUTHENTICATED_KEY : AUTHENTICATED_KEY, 'true')
     setError('')
-    setIsAuthenticated(true)
+    notifyLogin()
     navigate(destination || (isAdmin ? '/admin' : '/planejamento'))
   }
 

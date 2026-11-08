@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight, Heart, Plus, Save, Trash2 } from 'lucide-react'
-import { ADMIN_AUTHENTICATED_KEY, AUTHENTICATED_KEY } from './data/planning'
+import { useAccess } from './lib/access'
 import { loadLinks, saveLinks, validLink } from './data/relationshipLinks'
 
 export default function Links() {
-  const admin = localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
-  const authenticated = admin || localStorage.getItem(AUTHENTICATED_KEY) === 'true'
+  const { admin, authenticated } = useAccess()
   const [links, setLinks] = useState([])
   const [baseline, setBaseline] = useState(null)
   const [status, setStatus] = useState('loading')

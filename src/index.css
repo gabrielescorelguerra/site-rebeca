@@ -428,3 +428,8 @@ textarea.admin-input { resize: vertical; }
 .advanced-controls { border-top: 1px solid #eee6e2; padding-top: 18px; }
 .advanced-controls summary { cursor: pointer; color: #965365; font-size: 12px; padding: 8px 0; }
 .advanced-controls-body { display: flex; flex-direction: column; gap: 22px; padding-top: 22px; }
+
+.call-empty { max-width: 640px; margin: 0 auto; padding: 48px 24px; text-align: center; }
+.call-empty > svg { margin: 0 auto 24px; color: var(--accent-color); }
+.call-empty h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 400; line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
+.call-empty p { margin-top: 18px; font-size: 14px; line-height: 1.8; opacity: .75; }

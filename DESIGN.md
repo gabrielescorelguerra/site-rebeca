@@ -30,3 +30,9 @@ Use rótulos visíveis, foco por teclado, nomes acessíveis para botões de íco
 
 ## Linguagem
 Use português simples e natural. Evite slogans decorativos como “feito com carinho”, “cada detalhe” e “um cantinho especial”. Remova frases que não acrescentam informação. No editor, prefira instruções diretas; nas mensagens pessoais, mantenha um tom de conversa, sem linguagem publicitária. Preserve textos personalizados salvos pelo usuário.
+
+## Call não planejada
+Em “O encontro”, o controle “Call planejada” define se o widget exibe o encontro ou um aviso de que não há call no momento. Desativar preserva os detalhes e permite salvar sem preencher a data. A prévia e a página real devem mostrar o mesmo estado. Configurações antigas continuam ativas por padrão.
+
+## Modo de teste
+O botão “Testar como usuário comum” no editor ativa uma simulação nesta aba, mantida ao recarregar. Use o papel efetivo de src/lib/access.js em todas as telas: esconder edição de links, impedir acesso ao editor e navegar para a call como visitante autenticado. Uma barra permite encerrar o teste e voltar ao admin. O teste usa dados salvos; alterações pendentes são guardadas como rascunho antes de sair. Logout encerra a sessão e o teste. Isso é uma ferramenta de interface, não substitui autorização no servidor.

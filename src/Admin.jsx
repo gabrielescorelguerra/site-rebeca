@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowDown, ArrowUp, Check, Copy, Heart, Plus, Save, Trash2, Monitor, Smartphone, RotateCcw, Sparkles, Palette, Type, CalendarDays, ListOrdered, Link, Image, WandSparkles, Eye } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { ADMIN_AUTHENTICATED_KEY, defaultPlanning, loadPlanning, planningOptions, savePlanning } from './data/planning'
+import { defaultPlanning, loadPlanning, planningOptions, savePlanning } from './data/planning'
 import { PlanningCanvas } from './Planning'
 import CallPreview from './components/CallPreview'
 import { validLink } from './data/relationshipLinks'
+import { useAccess, startUserTest, logout } from './lib/access'
 import { themes } from './data/themes'
 
 const tabs = [['content', 'O encontro', CalendarDays], ['themes', 'Temas', Sparkles], ['experience', 'Experiência', Heart], ['appearance', 'Aparência', Palette], ['background', 'Fundo', Image], ['motion', 'Movimento', WandSparkles], ['activities', 'Atividades', ListOrdered], ['tools', 'Links e aplicativos', Link]]
@@ -22,7 +23,7 @@ const motionPresets = {
 
 function Admin() {
   const navigate = useNavigate()
-  const authenticated = localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
+  const { admin: authenticated, testing } = useAccess()
   const [previewMode, setPreviewMode] = useState(null)
   const [retry, setRetry] = useState(0)
   const [planning, setPlanning] = useState(defaultPlanning)
@@ -38,7 +39,7 @@ function Admin() {
   const dirty = baseline !== null && JSON.stringify(planning) !== JSON.stringify(baseline)
 
   useEffect(() => {
-    if (!authenticated) { navigate('/autenticacao', { replace: true }); return }
+    if (!authenticated) { navigate(testing ? '/' : '/autenticacao', { replace: true }); return }
     let active = true
     loadPlanning().then(value => {
       if (!active) return
@@ -46,7 +47,7 @@ function Admin() {
       try { const cached = JSON.parse(localStorage.getItem(draftKey)); if (cached && JSON.stringify(cached) !== JSON.stringify(value)) setDraft(cached) } catch { localStorage.removeItem(draftKey) }
     }).catch(err => { if (active) { setError(err.message || 'Não foi possível carregar a call.'); setStatus('error') } })
     return () => { active = false; window.clearTimeout(saveTimer.current) }
-  }, [authenticated, navigate, retry])
+  }, [authenticated, testing, navigate, retry])
 
   useEffect(() => {
     if (!dirty) return
@@ -63,10 +64,12 @@ function Admin() {
   const save = async event => {
     event.preventDefault()
     if (status === 'saving' || !baseline) return
+    if (planning.hasPlannedCall !== false) {
     if (!planning.title.trim() || !planning.date || !Number.isFinite(new Date(planning.date).getTime())) { setTab('content'); setError('Preencha o título e a data do encontro.'); return }
     if (planning.showCallButton && (!validLink(planning.callUrl) || !planning.callButtonLabel.trim())) { setTab('experience'); setError('Preencha o texto do botão e um endereço válido para a call (https:// ou http://).'); return }
     if (planning.activities.some(item => !item.name.trim())) { setTab('activities'); setError('Dê um nome a cada atividade antes de salvar.'); return }
     if (planning.tools.some(item => !item.name.trim() || (item.url && !validLink(item.url)))) { setTab('tools'); setError('Preencha o nome de cada link e use um endereço iniciado por https:// ou http://.'); return }
+    }
     window.clearTimeout(saveTimer.current)
     setStatus('saving'); setError('')
     const snapshot = structuredClone(planning)
@@ -90,14 +93,22 @@ function Admin() {
     reader.readAsDataURL(file)
   }
   const editItem = (collection, id, key, value) => update(collection, planning[collection].map(item => item.id === id ? { ...item, [key]: value } : item))
+  const testAsUser = () => {
+    if (dirty) {
+      try { localStorage.setItem(draftKey, JSON.stringify(planning)) }
+      catch { setError('Não foi possível guardar seu rascunho. Salve as alterações antes de iniciar o teste.'); return }
+    }
+    startUserTest()
+    navigate('/')
+  }
   const leave = destination => { if (!dirty || window.confirm('Você tem alterações não salvas. Sair do editor?')) navigate(destination) }
   const move = (index, direction) => { const items = [...planning.activities]; [items[index], items[index + direction]] = [items[index + direction], items[index]]; update('activities', items) }
   if (!authenticated) return null
 
   return <main className="studio-shell">
-    <header className="studio-header"><button type="button" className="text-button" onClick={() => leave('/')}><ArrowLeft size={16} />Voltar</button><span className="studio-brand"><Heart size={16} fill="currentColor" />rebeca <span>/</span> painel da call</span><button className="text-button" type="button" onClick={() => { if (dirty && !window.confirm('Sair sem salvar as alterações?')) return; localStorage.removeItem(ADMIN_AUTHENTICATED_KEY); navigate('/autenticacao') }}>logout</button></header>
+    <header className="studio-header"><button type="button" className="text-button" onClick={() => leave('/')}><ArrowLeft size={16} />Voltar</button><span className="studio-brand"><Heart size={16} fill="currentColor" />rebeca <span>/</span> painel da call</span><button className="text-button" type="button" onClick={() => { if (dirty && !window.confirm('Sair sem salvar as alterações?')) return; logout(); navigate('/autenticacao') }}>logout</button></header>
     <form noValidate onSubmit={save} className="studio-main">
-      <div className="studio-heading"><div><h1>Editar call<span>.</span></h1><p>Altere o conteúdo e o visual da próxima call.</p></div><div className="studio-heading-actions"><button type="button" className="secondary-button" disabled={!baseline} onClick={() => setPreviewMode('draft')}><Eye size={16} />Prévia em tela inteira</button><a className="text-button" href="/planejamento" target="_blank" rel="noopener noreferrer">Ver versão salva ↗<span className="sr-only"> em nova aba</span></a><button className="studio-save" disabled={!baseline || status === 'saving' || !dirty} type="submit">{status === 'saved' ? <Check size={17} /> : <Save size={17} />}{status === 'saving' ? 'Salvando…' : status === 'saved' ? 'Alterações salvas' : 'Salvar alterações'}</button></div></div>
+      <div className="studio-heading"><div><h1>Editar call<span>.</span></h1><p>Altere o conteúdo e o visual da próxima call.</p></div><div className="studio-heading-actions"><button type="button" className="secondary-button" disabled={!baseline || status === 'saving'} onClick={testAsUser}>Testar como usuário comum</button><button type="button" className="secondary-button" disabled={!baseline} onClick={() => setPreviewMode('draft')}><Eye size={16} />Prévia em tela inteira</button><a className="text-button" href="/planejamento" target="_blank" rel="noopener noreferrer">Ver versão salva ↗<span className="sr-only"> em nova aba</span></a><button className="studio-save" disabled={!baseline || status === 'saving' || !dirty} type="submit">{status === 'saved' ? <Check size={17} /> : <Save size={17} />}{status === 'saving' ? 'Salvando…' : status === 'saved' ? 'Alterações salvas' : 'Salvar alterações'}</button></div></div>
       <div className="studio-status" role="status"><span className={dirty ? 'status-dot unsaved' : 'status-dot'} />{status === 'loading' ? 'Carregando sua call…' : status === 'error' ? 'Não foi possível carregar a call' : dirty ? `Alterações ainda não publicadas · ${draftStored ? 'rascunho salvo neste navegador' : 'salvando rascunho…'}` : 'Tudo em dia · sua call está salva'}{dirty && <button type="button" onClick={() => { setPlanning(baseline); localStorage.removeItem(draftKey); setStatus('ready') }}><RotateCcw size={13} />Desfazer alterações</button>}</div>
       {error && <div className="studio-notice" role="alert">{error}{status === 'error' && <button type="button" onClick={() => { setStatus('loading'); setError(''); setRetry(value => value + 1) }}>Tentar novamente</button>}</div>}
       {draft && <div className="studio-notice">Você tem um rascunho deste navegador.<button type="button" onClick={() => { patch({ ...defaultPlanning, ...draft }); setDraft(null) }}>Recuperar rascunho</button><button type="button" onClick={() => { localStorage.removeItem(draftKey); setDraft(null) }}>Descartar rascunho</button></div>}
@@ -105,7 +116,7 @@ function Admin() {
         <nav className="editor-tabs" aria-label="Seções do editor">{tabs.map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}><Icon size={16} />{label}</button>)}</nav>
         <fieldset disabled={!baseline || status === 'saving'} className="editor-card">
           <div className="editor-section-heading"><h2>{tabs.find(item => item[0] === tab)[1]}</h2></div>
-          {tab === 'content' && <><label>Título da call<input className="admin-input" required maxLength={160} value={planning.title} onChange={e => update('title', e.target.value)} /></label><label>Uma mensagem para ela<textarea className="admin-input" rows={4} value={planning.subtitle} onChange={e => update('subtitle', e.target.value)} /></label><div className="field-grid"><label>Data e hora<input className="admin-input" required type="datetime-local" value={planning.date} onChange={e => update('date', e.target.value)} /></label><label>Mensagem de encerramento<input className="admin-input" value={planning.footerMessage} onChange={e => update('footerMessage', e.target.value)} /></label></div><div className="field-grid">{text('planningLabel', 'Etiqueta acima do título')}{text('activitiesLabel', 'Título das atividades')}{text('toolsLabel', 'Título dos links')}</div>{toggle('showPlanningLabel', 'Mostrar etiqueta acima do título')}{toggle('showDate', 'Mostrar data e hora')}{toggle('showSubtitle', 'Mostrar mensagem de abertura')}{toggle('showCountdown', 'Contagem regressiva', 'O tempo que falta para nosso encontro.')}{planning.showCountdown && <>{select('countdownStyle', 'Estilo da contagem', [['text', 'Texto simples'], ['blocks', 'Blocos de tempo']])}{text('countdownFinished', 'Mensagem quando chegar a hora')}</>}</>}
+          {tab === 'content' && <>{toggle('hasPlannedCall', 'Call planejada', 'Desative para mostrar que não há call planejada no momento. Os detalhes continuam salvos.')}{planning.hasPlannedCall === false && <p className="section-help">Salve para atualizar a página. Você pode continuar editando os detalhes e reativar a call quando quiser.</p>}<label>Título da call<input className="admin-input" required maxLength={160} value={planning.title} onChange={e => update('title', e.target.value)} /></label><label>Uma mensagem para ela<textarea className="admin-input" rows={4} value={planning.subtitle} onChange={e => update('subtitle', e.target.value)} /></label><div className="field-grid"><label>Data e hora<input className="admin-input" required type="datetime-local" value={planning.date} onChange={e => update('date', e.target.value)} /></label><label>Mensagem de encerramento<input className="admin-input" value={planning.footerMessage} onChange={e => update('footerMessage', e.target.value)} /></label></div><div className="field-grid">{text('planningLabel', 'Etiqueta acima do título')}{text('activitiesLabel', 'Título das atividades')}{text('toolsLabel', 'Título dos links')}</div>{toggle('showPlanningLabel', 'Mostrar etiqueta acima do título')}{toggle('showDate', 'Mostrar data e hora')}{toggle('showSubtitle', 'Mostrar mensagem de abertura')}{toggle('showCountdown', 'Contagem regressiva', 'O tempo que falta para nosso encontro.')}{planning.showCountdown && <>{select('countdownStyle', 'Estilo da contagem', [['text', 'Texto simples'], ['blocks', 'Blocos de tempo']])}{text('countdownFinished', 'Mensagem quando chegar a hora')}</>}</>}
           {tab === 'experience' && <>
             <p className="section-help">Configure o botão da ligação, o calendário e o bilhete.</p>
             {toggle('showCallButton', 'Botão para entrar na call', 'Abre o endereço da ligação em uma nova aba.')}

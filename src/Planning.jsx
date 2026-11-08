@@ -1,7 +1,8 @@
 import { CalendarDays, Cat, Circle, CircleDashed, Coffee, Clock3, Crown, Cuboid, Dice5, ExternalLink, Flame, Gamepad2, Ghost, Heart, Joystick, Music, Rocket, Sparkles, Star, Square, Sword, Trophy, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate, Link, useNavigate } from 'react-router-dom'
-import { ADMIN_AUTHENTICATED_KEY, AUTHENTICATED_KEY, loadPlanning } from './data/planning'
+import { useAccess } from './lib/access'
+import { loadPlanning } from './data/planning'
 import { planningPatterns } from './data/planningVisuals'
 import { animationIntensities, animationSpeeds, entranceAnimations, hoverAnimations, iconAnimations, loopAnimations } from './data/planningAnimations'
 
@@ -174,8 +175,7 @@ export function PlanningView({ planning }) {
 
 function Planning() {
   const navigate = useNavigate()
-  const admin = localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
-  const authenticated = admin || localStorage.getItem(AUTHENTICATED_KEY) === 'true'
+  const { admin, authenticated } = useAccess()
   const [planning, setPlanning] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -212,7 +212,11 @@ export function PlanningCanvas({ planning, preview = false, onBack }) {
     {planning.backgroundImage && <div className={`planning-image ${planning.animationEnabled ? backgroundMotions[planning.backgroundMotion] : ''}`} style={{ backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity, backgroundPosition: planning.backgroundImagePosition, filter: `blur(${planning.backgroundImageBlur}px)`, '--animation-duration': animationSpeeds[planning.animationSpeed] || animationSpeeds.normal }} />}
     <BackgroundIconLayer planning={planning} />
     <header className="call-header"><span><Heart size={15} fill="currentColor" />rebeca</span>{preview ? <span style={{ color: planning.backButtonColor }}>voltar para o começo</span> : <button type="button" style={{ color: planning.backButtonColor }} onClick={onBack}>voltar para o começo</button>}</header>
-    <div className="call-content"><PlanningView planning={planning} /></div>
+    <div className="call-content">{planning.hasPlannedCall === false ? <section className="call-empty" aria-labelledby="no-call-title">
+      <CalendarDays size={32} strokeWidth={1.4} aria-hidden="true" />
+      <h1 id="no-call-title">Sem call planejada no momento.</h1>
+      <p>Quando marcarmos a próxima, ela aparece aqui.</p>
+    </section> : <PlanningView planning={planning} />}</div>
   </div>
 }
 

@@ -7,10 +7,12 @@ import Auth from './Auth.jsx'
 import Planning from './Planning.jsx'
 import Admin from './Admin.jsx'
 import Links from './Links.jsx'
+import TestModeBar from './components/TestModeBar.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
+      <TestModeBar />
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/autenticacao" element={<Auth />} />
