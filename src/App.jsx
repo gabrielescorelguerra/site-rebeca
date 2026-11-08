@@ -81,6 +81,7 @@ function App() {
           {subtitle}
         </p>
 
+        <div className="welcome-actions">
         <button
           className="primary-button inline-flex min-w-55.5 cursor-pointer items-center justify-between gap-8 rounded-full border border-[#bd7184] bg-[#bd7184] px-5.25 py-3.75 text-[.82rem] tracking-[.03em] text-[#fffaf9] transition duration-220 ease-in-out hover:-translate-y-1 hover:bg-transparent hover:text-[#965365] disabled:cursor-wait sm:max-w-67.5 sm:w-full"
           type="button"
@@ -90,6 +91,9 @@ function App() {
           <span>Ver a próxima call</span>
           <span className={isOpening ? 'animate-[arrow-pulse_.7s_ease-in-out_infinite] text-[1.15rem] leading-none' : 'text-[1.15rem] leading-none'} aria-hidden="true">↗</span>
         </button>
+
+        <button type="button" className="welcome-links-button" onClick={() => navigate('/links')}>Nossos links <span aria-hidden="true">↗</span></button>
+        </div>
 
         <div className="mt-7 flex items-center justify-center gap-3 text-[.68rem] uppercase tracking-[.16em] text-[#a8979b]" aria-live="polite">
           <span className="h-px w-6 bg-[#e8dfe0]" aria-hidden="true" />

@@ -6,6 +6,23 @@ export const AUTHENTICATED_KEY = 'rebecca-authenticated'
 export const ADMIN_AUTHENTICATED_KEY = 'rebecca-admin-authenticated'
 
 export const defaultPlanning = {
+  showActivities: true,
+  showSubtitle: true,
+  sectionLayout: 'columns',
+  contentOffset: 90,
+  titleColor: '#31292d',
+  useTitleColor: false,
+  showCallButton: false,
+  callUrl: '',
+  callButtonLabel: 'Entrar na nossa call',
+  buttonStyle: 'filled',
+  showCalendar: false,
+  eventDuration: 60,
+  showNote: false,
+  noteTitle: 'Um lembrete para você',
+  noteText: 'Meu lugar favorito é onde a gente se encontra.',
+  countdownStyle: 'text',
+  countdownFinished: 'Chegou a hora de ficar pertinho, mesmo de longe.',
   planningLabel: 'planejamento da ligação',
   activitiesLabel: 'o que vamos fazer',
   toolsLabel: 'vamos usar',

@@ -6,6 +6,7 @@ import App from './App.jsx'
 import Auth from './Auth.jsx'
 import Planning from './Planning.jsx'
 import Admin from './Admin.jsx'
+import Links from './Links.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<App />} />
         <Route path="/autenticacao" element={<Auth />} />
         <Route path="/planejamento" element={<Planning />} />
+        <Route path="/links" element={<Links />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
     </BrowserRouter>

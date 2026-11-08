@@ -1,9 +1,13 @@
 import { CalendarDays, Cat, Circle, CircleDashed, Coffee, Clock3, Crown, Cuboid, Dice5, ExternalLink, Flame, Gamepad2, Ghost, Heart, Joystick, Music, Rocket, Sparkles, Star, Square, Sword, Trophy, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { defaultPlanning, loadPlanning } from './data/planning'
+import { Navigate, Link, useNavigate } from 'react-router-dom'
+import { ADMIN_AUTHENTICATED_KEY, AUTHENTICATED_KEY, loadPlanning } from './data/planning'
 import { planningPatterns } from './data/planningVisuals'
 import { animationIntensities, animationSpeeds, entranceAnimations, hoverAnimations, iconAnimations, loopAnimations } from './data/planningAnimations'
+
+import CallSplash from './components/CallSplash'
+import { validLink } from './data/relationshipLinks'
+import { downloadCalendar } from './utils/calendar'
 
 const fonts = {
   sans: 'Inter, ui-sans-serif, sans-serif',
@@ -149,15 +153,20 @@ export function PlanningView({ planning }) {
       {shapeDecorations[planning.panelShape] && <div className="pointer-events-none absolute inset-0 -z-0 opacity-10" style={{ clipPath: shapeDecorations[planning.panelShape], backgroundColor: planning.accentColor }} />}
       <div className="call-intro relative z-10">
         {planning.showPlanningLabel && <div className="mb-7 flex items-center gap-2 text-xs uppercase tracking-[.2em]" style={{ color: planning.planningLabelColor || planning.accentColor }}><Icon className={planning.animationEnabled ? iconAnimations[planning.iconAnimation] : ''} style={{ animationDelay: '0.2s', '--animation-duration': duration }} size={16} aria-hidden="true" />{planning.planningLabel}</div>}
-        <h1 className="call-title font-normal leading-[1.06]" style={{ fontWeight: planning.titleWeight, letterSpacing: `${planning.titleSpacing}em` }}>{planning.title}</h1>
-        <p className="mt-6 max-w-xl opacity-65">{planning.subtitle}</p>
+        <h1 className="call-title font-normal leading-[1.06]" style={{ color: planning.useTitleColor ? planning.titleColor : undefined, fontWeight: planning.titleWeight, letterSpacing: `${planning.titleSpacing}em` }}>{planning.title}</h1>
+        {planning.showSubtitle && <p className="mt-6 max-w-xl opacity-65">{planning.subtitle}</p>}
         {planning.showDate && <div className="call-date mt-8 flex flex-wrap gap-4 text-sm opacity-70"><span className="flex items-center gap-2"><CalendarDays className="size-4" />{formattedDate}</span></div>}
-        {planning.showCountdown && <Countdown date={planning.date} />}
+        {planning.showCountdown && <Countdown date={planning.date} variant={planning.countdownStyle} finished={planning.countdownFinished} />}
+        {(planning.showCallButton || planning.showCalendar) && <div className="call-actions">
+          {planning.showCallButton && validLink(planning.callUrl) && <a className={`call-join ${planning.buttonStyle}`} href={planning.callUrl} target="_blank" rel="noopener noreferrer">{planning.callButtonLabel || 'Entrar na nossa call'}<ExternalLink size={16} aria-hidden="true" /><span className="sr-only"> (nova aba)</span></a>}
+          {planning.showCalendar && Number.isFinite(date.getTime()) && <button className="call-calendar" type="button" onClick={() => downloadCalendar(planning)}><CalendarDays size={16} />Adicionar ao calendário</button>}
+        </div>}
       </div>
-      <div className={`relative z-10 mt-12 grid gap-8 border-t border-current/10 pt-8 ${planning.showTools ? 'call-with-tools' : ''}`}>
-        <div><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.activitiesLabel}</h2><ol className={`call-activities mt-5 layout-${planning.activityLayout}`} >{planning.activities.map((activity, index) => <li className="flex items-center justify-between gap-4 border-b border-current/10 py-4" key={activity.id}><span className="flex items-center gap-4">{planning.showActivityNumbers && <span className="activity-number text-sm text-[color:var(--accent-color)]">{String(index + 1).padStart(2, '0')}</span>}<span>{activity.name}{activity.description && <small className="activity-description">{activity.description}</small>}</span></span>{planning.showDurations && <span className="flex shrink-0 items-center gap-1 text-sm opacity-55"><Clock3 className="size-3.5" />{activity.duration}</span>}</li>)}</ol></div>
-        {planning.showTools && <aside className="border-t border-current/10 pt-6 lg:border-l lg:border-t-0 lg:pl-8"><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.toolsLabel}</h2><div className="mt-5 space-y-3">{planning.tools.map((tool) => <a className="flex items-center justify-between border-b border-current/10 py-3 transition-colors hover:text-[color:var(--accent-color)]" href={/^https?:\/\//i.test(tool.url) ? tool.url : undefined} target="_blank" rel="noreferrer" key={tool.id}>{tool.name}<ExternalLink className="size-4" /></a>)}</div></aside>}
-      </div>
+      {(planning.showActivities || planning.showTools) && <div className={`relative z-10 mt-12 grid gap-8 border-t border-current/10 pt-8 ${planning.showTools && planning.showActivities && planning.sectionLayout === 'columns' ? 'call-with-tools' : ''}`}>
+        {planning.showActivities && <div><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.activitiesLabel}</h2><ol className={`call-activities mt-5 layout-${planning.activityLayout}`} >{planning.activities.map((activity, index) => <li className="flex items-center justify-between gap-4 border-b border-current/10 py-4" key={activity.id}><span className="flex items-center gap-4">{planning.showActivityNumbers && <span className="activity-number text-sm text-[color:var(--accent-color)]">{String(index + 1).padStart(2, '0')}</span>}<span>{activity.name}{activity.description && <small className="activity-description">{activity.description}</small>}</span></span>{planning.showDurations && <span className="flex shrink-0 items-center gap-1 text-sm opacity-55"><Clock3 className="size-3.5" />{activity.duration}</span>}</li>)}</ol>{!planning.activities.length && <p className="section-help">Um encontro sem roteiro, só nosso.</p>}</div>}
+        {planning.showTools && <aside className={planning.showActivities && planning.sectionLayout === 'columns' ? "border-t border-current/10 pt-6 lg:border-l lg:border-t-0 lg:pl-8" : "border-t border-current/10 pt-6"}><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.toolsLabel}</h2><div className="mt-5 space-y-3">{planning.tools.map((tool) => <a className="flex items-center justify-between border-b border-current/10 py-3 transition-colors hover:text-[color:var(--accent-color)]" href={validLink(tool.url) ? tool.url : undefined} target="_blank" rel="noopener noreferrer" key={tool.id}>{tool.name}<ExternalLink className="size-4" /></a>)}</div></aside>}
+      </div>}
+      {planning.showNote && planning.noteText && <aside className="call-note"><Heart size={20} aria-hidden="true" /><div><h2>{planning.noteTitle}</h2><p>{planning.noteText}</p></div></aside>}
       {planning.footerMessage && <p className="call-footer"><Heart size={13} />{planning.footerMessage}</p>}
     </section></div></div>
   )
@@ -165,42 +174,41 @@ export function PlanningView({ planning }) {
 
 function Planning() {
   const navigate = useNavigate()
-  const [planning, setPlanning] = useState(defaultPlanning)
+  const admin = localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true'
+  const authenticated = admin || localStorage.getItem(AUTHENTICATED_KEY) === 'true'
+  const [planning, setPlanning] = useState(null)
   const [loadError, setLoadError] = useState('')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    if (!authenticated) return
     let active = true
-    loadPlanning()
-      .then((loadedPlanning) => {
-        if (active) setPlanning(loadedPlanning)
-      })
-      .catch((error) => {
-        console.error(error)
-        if (active) setLoadError(error.message || 'Não foi possível carregar a configuração.')
-      })
+    loadPlanning().then(value => { if (active) setPlanning(value) })
+      .catch(() => { if (active) setLoadError('Não conseguimos preparar nosso encontro agora. Vamos tentar mais uma vez?') })
     return () => { active = false }
-  }, [])
+  }, [authenticated, attempt])
 
-  if (loadError) {
-    return <main className="flex min-h-svh items-center justify-center px-6 text-center text-[#31292d]"><p>{loadError}</p></main>
-  }
-
-  return <PlanningCanvas planning={planning} onBack={() => navigate('/')} />
+  if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/planejamento' }} replace />
+  if (loadError) return <main className="call-splash site-shell"><Heart size={32} aria-hidden="true" /><h1>Nosso cantinho já volta.</h1><p role="alert">{loadError}</p><button className="studio-save" onClick={() => { setLoadError(''); setAttempt(value => value + 1) }}>Tentar novamente</button><Link className="text-button" to="/">Voltar ao início</Link></main>
+  if (!planning) return <CallSplash />
+  return <>{admin && <nav className="published-toolbar" aria-label="Visualização do administrador"><span>Versão salva · é assim que os outros usuários veem</span><Link to="/admin">Voltar ao editor</Link></nav>}<PlanningCanvas planning={planning} onBack={() => navigate('/')} /></>
 }
 
-function Countdown({ date }) {
+function Countdown({ date, variant, finished }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
   const remaining = new Date(date).getTime() - now
-  if (!Number.isFinite(remaining) || remaining <= 0) return null
+  if (!Number.isFinite(remaining)) return null
+  if (remaining <= 0) return <p className="call-countdown">{finished}</p>
   const minutes = Math.floor(remaining / 60000)
   const days = Math.floor(minutes / 1440)
   const hours = Math.floor(minutes % 1440 / 60)
+  if (variant === 'blocks') return <div className="countdown-blocks" aria-label={`${days} dias, ${hours} horas e ${minutes % 60} minutos para nosso encontro`}>{[[days, 'dias'], [hours, 'horas'], [minutes % 60, 'minutos']].map(([value, label]) => <span key={label}><strong>{String(value).padStart(2, '0')}</strong><small>{label}</small></span>)}</div>
   return <p className="call-countdown">♡ falta{minutes >= 60 ? 'm' : ''} {days > 0 ? `${days}d ` : ''}{hours > 0 ? `${hours}h ` : ''}{minutes % 60}min para nós</p>
 }
 
 export function PlanningCanvas({ planning, preview = false, onBack }) {
-  return <div className={`planning-canvas ${preview ? 'is-preview' : ''} ${planningPatterns[planning.backgroundPattern] || ''}`} style={{ backgroundColor: planning.backgroundColor, ...(planning.backgroundGradient ? { backgroundImage: `linear-gradient(${planning.backgroundGradientAngle}deg, ${planning.backgroundColor}, ${planning.backgroundGradientColor})` } : {}), color: planning.textColor, '--accent-color': planning.accentColor, fontFamily: fonts[planning.fontFamily] || fonts.sans }}>
+  return <div className={`planning-canvas ${preview ? 'is-preview' : ''} ${planningPatterns[planning.backgroundPattern] || ''}`} style={{ backgroundColor: planning.backgroundColor, ...(planning.backgroundGradient ? { backgroundImage: `linear-gradient(${planning.backgroundGradientAngle}deg, ${planning.backgroundColor}, ${planning.backgroundGradientColor})` } : {}), color: planning.textColor, '--accent-color': planning.accentColor, '--content-offset': `${planning.contentOffset}px`, fontFamily: fonts[planning.fontFamily] || fonts.sans }}>
     {planning.backgroundImage && <div className={`planning-image ${planning.animationEnabled ? backgroundMotions[planning.backgroundMotion] : ''}`} style={{ backgroundImage: `url(${planning.backgroundImage})`, opacity: planning.backgroundImageOpacity, backgroundPosition: planning.backgroundImagePosition, filter: `blur(${planning.backgroundImageBlur}px)`, '--animation-duration': animationSpeeds[planning.animationSpeed] || animationSpeeds.normal }} />}
     <BackgroundIconLayer planning={planning} />
     <header className="call-header"><span><Heart size={15} fill="currentColor" />rebeca</span>{preview ? <span style={{ color: planning.backButtonColor }}>voltar para o começo</span> : <button type="button" style={{ color: planning.backButtonColor }} onClick={onBack}>voltar para o começo</button>}</header>

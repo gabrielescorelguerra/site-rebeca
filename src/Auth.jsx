@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Heart } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { randomAffectionatePhrase } from './utils/random'
 import { ADMIN_AUTHENTICATED_KEY, AUTHENTICATED_KEY } from './data/planning'
 
@@ -10,6 +10,9 @@ const AUTHORIZED_BIRTH_DATE = '2006-07-04'
 
 function Auth() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const destination = ['/links', '/planejamento'].includes(location.state?.from) ? location.state.from : null
+  const [phrase] = useState(randomAffectionatePhrase)
   const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState('')
@@ -20,11 +23,11 @@ function Auth() {
 
   useEffect(() => {
     if (localStorage.getItem(ADMIN_AUTHENTICATED_KEY) === 'true') {
-      navigate('/admin', { replace: true })
+      navigate(destination || '/admin', { replace: true })
     } else if (isAuthenticated) {
-      navigate('/planejamento', { replace: true })
+      navigate(destination || '/planejamento', { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, destination])
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -41,7 +44,7 @@ function Auth() {
     localStorage.setItem(isAdmin ? ADMIN_AUTHENTICATED_KEY : AUTHENTICATED_KEY, 'true')
     setError('')
     setIsAuthenticated(true)
-    navigate(isAdmin ? '/admin' : '/planejamento')
+    navigate(destination || (isAdmin ? '/admin' : '/planejamento'))
   }
 
   return (
@@ -80,7 +83,7 @@ function Auth() {
         ) : (
           <>
             <p className="mb-5 text-center text-[.7rem] uppercase tracking-[.22em] text-[#bd7184]">
-              {randomAffectionatePhrase()}
+              {phrase}
             </p>
             <h1 className="text-center font-serif text-5xl font-normal leading-[.98] tracking-[-.05em] text-[#965365]">
               Login
@@ -120,7 +123,7 @@ function Auth() {
                 className="primary-button w-full cursor-pointer rounded-full border border-[#bd7184] bg-[#bd7184] px-5 py-3.75 text-[.82rem] tracking-[.03em] text-[#fffaf9] transition duration-220 hover:-translate-y-1 hover:bg-transparent hover:text-[#965365]"
                 type="submit"
               >
-                Ver próxima call
+                {destination === '/links' ? 'Ver nossos links' : 'Ver próxima call'}
               </button>
             </form>
           </>
