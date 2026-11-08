@@ -95,19 +95,8 @@ function App() {
         <button type="button" className="welcome-links-button" onClick={() => navigate('/links')}>Nossos links <span aria-hidden="true">↗</span></button>
         </div>
 
-        <div className="mt-7 flex items-center justify-center gap-3 text-[.68rem] uppercase tracking-[.16em] text-[#a8979b]" aria-live="polite">
-          <span className="h-px w-6 bg-[#e8dfe0]" aria-hidden="true" />
-          <span>feito com carinho</span>
-          <span className="h-px w-6 bg-[#e8dfe0]" aria-hidden="true" />
-        </div>
       </section>
 
-      {/* <footer className="flex animate-[appear_.8s_.35s_ease_both] items-center justify-center gap-[9px] text-[.72rem] uppercase tracking-[.16em] text-[#88777c]">
-        <span>feito com carinho</span>
-        <span className="text-base text-[#bd7184]" aria-hidden="true">·</span>
-        <span>2026</span>
-      </footer> */}
-      <footer className="welcome-footer"><span>um lugar para nossos próximos momentos</span></footer>
     </main>
   )
 }

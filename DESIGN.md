@@ -27,3 +27,6 @@ Use rótulos visíveis, foco por teclado, nomes acessíveis para botões de íco
 - Durante a busca da configuração, use CallSplash, sem exibir conteúdo de exemplo ou impor atraso artificial. Falhas devem oferecer nova tentativa e retorno ao início.
 - Personalizações opcionais: botão da ligação, calendário, bilhete, contagem em blocos, cor própria do título, visibilidade de conteúdo e composição das seções. Preserve compatibilidade de configurações antigas com defaultPlanning.
 - No celular, mantenha a ação de salvar acessível e espaço inferior para não encobrir os campos. Prévia modal deve preservar foco, Escape e movimento reduzido.
+
+## Linguagem
+Use português simples e natural. Evite slogans decorativos como “feito com carinho”, “cada detalhe” e “um cantinho especial”. Remova frases que não acrescentam informação. No editor, prefira instruções diretas; nas mensagens pessoais, mantenha um tom de conversa, sem linguagem publicitária. Preserve textos personalizados salvos pelo usuário.

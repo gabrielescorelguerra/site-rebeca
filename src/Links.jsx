@@ -45,9 +45,9 @@ export default function Links() {
   return <main className="site-shell links-shell">
     <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (dirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /></span></header>
     <section className="links-content page-transition" aria-labelledby="links-title">
-      <p className="eyebrow">um cantinho para guardar o que importa</p>
+
       <h1 id="links-title">Nossos links<span>.</span></h1>
-      <p className="links-intro">Lugares, planos e pequenos detalhes que fazem parte da nossa história.</p>
+      <p className="links-intro">Os links que a gente quer guardar.</p>
       <p role="status" className="section-help">{status === 'loading' ? 'Carregando nossos links…' : status === 'saving' ? 'Salvando…' : status === 'saved' ? 'Links salvos. Já estão disponíveis para todos.' : dirty ? 'Você tem alterações ainda não salvas.' : ''}</p>
       {error && <div role="alert" className="studio-notice">{error}{status === 'error' && <button onClick={() => { setError(''); setStatus('loading'); setAttempt(value => value + 1) }}>Tentar novamente</button>}</div>}
       {baseline !== null && (admin ? <form onSubmit={save}>
@@ -58,11 +58,11 @@ export default function Links() {
             <label>Endereço<input className="admin-input" required type="url" value={item.url} onChange={event => update(item.id, 'url', event.target.value)} placeholder="https://" /></label>
             <label>Uma pequena descrição (opcional)<textarea className="admin-input" maxLength={300} rows={2} value={item.description} onChange={event => update(item.id, 'description', event.target.value)} /></label>
           </div>)}
-          {!links.length && <div className="links-empty"><Heart aria-hidden="true" /><h2>Todo carinho merece um lugar.</h2><p>Adicione o primeiro link da nossa história.</p></div>}
+          {!links.length && <div className="links-empty"><Heart aria-hidden="true" /><h2>Nenhum link adicionado ainda.</h2><p>Use “Adicionar link” para começar.</p></div>}
           <div className="links-actions"><button type="button" className="secondary-button" onClick={() => setLinks(items => [...items, { id: crypto.randomUUID(), title: '', url: '', description: '' }])}><Plus size={16} />Adicionar link</button><button type="submit" className="studio-save" disabled={!dirty}><Save size={16} />Salvar links</button></div>
         </fieldset>
-      </form> : <div className="links-grid">{links.length ? links.map(item => validLink(item.url) && <a className="relationship-card" key={item.id} href={item.url} target="_blank" rel="noopener noreferrer"><Heart size={20} aria-hidden="true" /><h2>{item.title}</h2>{item.description && <p>{item.description}</p>}<span>Abrir link <ArrowUpRight size={17} aria-hidden="true" /><span className="sr-only"> em uma nova aba</span></span></a>) : <div className="links-empty"><Heart aria-hidden="true" /><h2>Nosso cantinho está esperando.</h2><p>Em breve, os links especiais vão aparecer por aqui.</p></div>}</div>)}
-      <footer className="links-footer">feito com carinho · para nós</footer>
+      </form> : <div className="links-grid">{links.length ? links.map(item => validLink(item.url) && <a className="relationship-card" key={item.id} href={item.url} target="_blank" rel="noopener noreferrer"><Heart size={20} aria-hidden="true" /><h2>{item.title}</h2>{item.description && <p>{item.description}</p>}<span>Abrir link <ArrowUpRight size={17} aria-hidden="true" /><span className="sr-only"> em uma nova aba</span></span></a>) : <div className="links-empty"><Heart aria-hidden="true" /><h2>Ainda não temos links aqui.</h2></div>}</div>)}
+
     </section>
   </main>
 }

@@ -163,7 +163,7 @@ export function PlanningView({ planning }) {
         </div>}
       </div>
       {(planning.showActivities || planning.showTools) && <div className={`relative z-10 mt-12 grid gap-8 border-t border-current/10 pt-8 ${planning.showTools && planning.showActivities && planning.sectionLayout === 'columns' ? 'call-with-tools' : ''}`}>
-        {planning.showActivities && <div><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.activitiesLabel}</h2><ol className={`call-activities mt-5 layout-${planning.activityLayout}`} >{planning.activities.map((activity, index) => <li className="flex items-center justify-between gap-4 border-b border-current/10 py-4" key={activity.id}><span className="flex items-center gap-4">{planning.showActivityNumbers && <span className="activity-number text-sm text-[color:var(--accent-color)]">{String(index + 1).padStart(2, '0')}</span>}<span>{activity.name}{activity.description && <small className="activity-description">{activity.description}</small>}</span></span>{planning.showDurations && <span className="flex shrink-0 items-center gap-1 text-sm opacity-55"><Clock3 className="size-3.5" />{activity.duration}</span>}</li>)}</ol>{!planning.activities.length && <p className="section-help">Um encontro sem roteiro, só nosso.</p>}</div>}
+        {planning.showActivities && <div><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.activitiesLabel}</h2><ol className={`call-activities mt-5 layout-${planning.activityLayout}`} >{planning.activities.map((activity, index) => <li className="flex items-center justify-between gap-4 border-b border-current/10 py-4" key={activity.id}><span className="flex items-center gap-4">{planning.showActivityNumbers && <span className="activity-number text-sm text-[color:var(--accent-color)]">{String(index + 1).padStart(2, '0')}</span>}<span>{activity.name}{activity.description && <small className="activity-description">{activity.description}</small>}</span></span>{planning.showDurations && <span className="flex shrink-0 items-center gap-1 text-sm opacity-55"><Clock3 className="size-3.5" />{activity.duration}</span>}</li>)}</ol>{!planning.activities.length && <p className="section-help">Ainda sem atividades definidas.</p>}</div>}
         {planning.showTools && <aside className={planning.showActivities && planning.sectionLayout === 'columns' ? "border-t border-current/10 pt-6 lg:border-l lg:border-t-0 lg:pl-8" : "border-t border-current/10 pt-6"}><h2 className="text-xs uppercase tracking-[.2em] opacity-55">{planning.toolsLabel}</h2><div className="mt-5 space-y-3">{planning.tools.map((tool) => <a className="flex items-center justify-between border-b border-current/10 py-3 transition-colors hover:text-[color:var(--accent-color)]" href={validLink(tool.url) ? tool.url : undefined} target="_blank" rel="noopener noreferrer" key={tool.id}>{tool.name}<ExternalLink className="size-4" /></a>)}</div></aside>}
       </div>}
       {planning.showNote && planning.noteText && <aside className="call-note"><Heart size={20} aria-hidden="true" /><div><h2>{planning.noteTitle}</h2><p>{planning.noteText}</p></div></aside>}
@@ -184,12 +184,12 @@ function Planning() {
     if (!authenticated) return
     let active = true
     loadPlanning().then(value => { if (active) setPlanning(value) })
-      .catch(() => { if (active) setLoadError('Não conseguimos preparar nosso encontro agora. Vamos tentar mais uma vez?') })
+      .catch(() => { if (active) setLoadError('Verifique sua conexão e tente novamente.') })
     return () => { active = false }
   }, [authenticated, attempt])
 
   if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/planejamento' }} replace />
-  if (loadError) return <main className="call-splash site-shell"><Heart size={32} aria-hidden="true" /><h1>Nosso cantinho já volta.</h1><p role="alert">{loadError}</p><button className="studio-save" onClick={() => { setLoadError(''); setAttempt(value => value + 1) }}>Tentar novamente</button><Link className="text-button" to="/">Voltar ao início</Link></main>
+  if (loadError) return <main className="call-splash site-shell"><Heart size={32} aria-hidden="true" /><h1>Não foi possível carregar a call.</h1><p role="alert">{loadError}</p><button className="studio-save" onClick={() => { setLoadError(''); setAttempt(value => value + 1) }}>Tentar novamente</button><Link className="text-button" to="/">Voltar ao início</Link></main>
   if (!planning) return <CallSplash />
   return <>{admin && <nav className="published-toolbar" aria-label="Visualização do administrador"><span>Versão salva · é assim que os outros usuários veem</span><Link to="/admin">Voltar ao editor</Link></nav>}<PlanningCanvas planning={planning} onBack={() => navigate('/')} /></>
 }

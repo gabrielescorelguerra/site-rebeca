@@ -77,7 +77,7 @@ function Auth() {
               Você já está dentro.
             </h1>
             <p className="mt-5 text-[.96rem] text-[#88777c]">
-              A próxima call espera por você.
+              Abrindo a próxima call…
             </p>
           </div>
         ) : (
