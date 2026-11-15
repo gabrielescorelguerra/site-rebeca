@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, ArrowUpRight, Heart, Plus, Save, Trash2 } from 'lucide-react'
-import { useAccess } from './lib/access'
+import { ArrowLeft, ArrowUpRight, Heart, LogOut, Plus, Save, Trash2 } from 'lucide-react'
+import { logout, useAccess } from './lib/access'
 import { loadLinks, saveLinks, validLink } from './data/relationshipLinks'
 
 export default function Links() {
@@ -11,13 +11,15 @@ export default function Links() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [updatedAt, setUpdatedAt] = useState(null)
+  const [conflict, setConflict] = useState(false)
   const dirty = baseline !== null && JSON.stringify(links) !== baseline
 
   useEffect(() => {
     if (!authenticated) return
     let active = true
-    loadLinks().then(items => {
-      if (active) { setLinks(items); setBaseline(JSON.stringify(items)); setStatus('ready') }
+    loadLinks().then(({ links: items, updatedAt: version }) => {
+      if (active) { setLinks(items); setBaseline(JSON.stringify(items)); setUpdatedAt(version); setConflict(false); setStatus('ready') }
     }).catch(() => { if (active) { setError('Não foi possível carregar nossos links. Tente novamente.'); setStatus('error') } })
     return () => { active = false }
   }, [authenticated, attempt])
@@ -30,25 +32,30 @@ export default function Links() {
   }, [dirty])
 
   const update = (id, key, value) => { setLinks(items => items.map(item => item.id === id ? { ...item, [key]: value } : item)); setStatus('ready') }
-  const save = async event => {
-    event.preventDefault()
+  const save = async (event, { force = false } = {}) => {
+    event?.preventDefault()
     if (!admin || status === 'saving') return
     const cleaned = links.map(item => ({ ...item, title: item.title.trim(), url: item.url.trim(), description: item.description.trim() }))
     if (cleaned.some(item => !item.title || !validLink(item.url))) { setError('Preencha os títulos e use endereços completos com https:// ou http://.'); return }
-    setStatus('saving'); setError('')
-    try { await saveLinks(cleaned); setLinks(cleaned); setBaseline(JSON.stringify(cleaned)); setStatus('saved') }
-    catch { setError('Não foi possível salvar. Suas alterações continuam aqui para tentar novamente.'); setStatus('ready') }
+    setStatus('saving'); setError(''); setConflict(false)
+    try { const version = await saveLinks(cleaned, { expectedUpdatedAt: updatedAt, force }); setLinks(cleaned); setBaseline(JSON.stringify(cleaned)); setUpdatedAt(version); setStatus('saved') }
+    catch (err) {
+      if (err.code === 'CONFLICT') setConflict(true)
+      else setError('Não foi possível salvar. Suas alterações continuam aqui para tentar novamente.')
+      setStatus('ready')
+    }
   }
 
   if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/links' }} replace />
   return <main className="site-shell links-shell">
-    <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (dirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /></span></header>
+    <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (dirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
     <section className="links-content page-transition" aria-labelledby="links-title">
 
       <h1 id="links-title">Nossos links<span>.</span></h1>
       <p className="links-intro">Os links que a gente quer guardar.</p>
       <p role="status" className="section-help">{status === 'loading' ? 'Carregando nossos links…' : status === 'saving' ? 'Salvando…' : status === 'saved' ? 'Links salvos. Já estão disponíveis para todos.' : dirty ? 'Você tem alterações ainda não salvas.' : ''}</p>
       {error && <div role="alert" className="studio-notice">{error}{status === 'error' && <button onClick={() => { setError(''); setStatus('loading'); setAttempt(value => value + 1) }}>Tentar novamente</button>}</div>}
+      {conflict && <div role="alert" className="studio-notice">Os links foram alterados em outro lugar depois que você abriu esta página.<button type="button" onClick={() => { setStatus('loading'); setBaseline(null); setAttempt(value => value + 1) }}>Carregar a versão nova</button><button type="button" onClick={() => save(null, { force: true })}>Salvar os meus mesmo assim</button></div>}
       {baseline !== null && (admin ? <form onSubmit={save}>
         <fieldset disabled={status === 'saving'} className="links-editor">
           {links.map((item, index) => <div className="editor-card" key={item.id}>

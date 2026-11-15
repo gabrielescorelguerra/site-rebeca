@@ -36,3 +36,8 @@ Em “O encontro”, o controle “Call planejada” define se o widget exibe o 
 
 ## Modo de teste
 O botão “Testar como usuário comum” no editor ativa uma simulação nesta aba, mantida ao recarregar. Use o papel efetivo de src/lib/access.js em todas as telas: esconder edição de links, impedir acesso ao editor e navegar para a call como visitante autenticado. Uma barra permite encerrar o teste e voltar ao admin. O teste usa dados salvos; alterações pendentes são guardadas como rascunho antes de sair. Logout encerra a sessão e o teste. Isso é uma ferramenta de interface, não substitui autorização no servidor.
+
+## Editor de call
+- Blocos livres sobre uma grade de 12 colunas; em telas estreitas todos ocupam a largura toda.
+- Molduras, texturas e formas são CSS puro e usam a cor de destaque da página; mantenha as molduras antigas (chaves em `src/data/visuals.js`) para não quebrar chamadas salvas.
+- O editor segue a paleta do site (rosa antigo e creme); o visual de cada call é livre e fica por conta do conteúdo.

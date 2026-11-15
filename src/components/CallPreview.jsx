@@ -14,6 +14,6 @@ export default function CallPreview({ planning, splash, onClose }) {
   }, [])
   return <dialog ref={dialog} className="real-preview" onCancel={onClose} aria-label={splash ? 'Prévia do carregamento' : 'Prévia em tela inteira'}>
     <div className="real-preview-toolbar"><span>{splash ? 'Tela de carregamento' : 'Prévia do rascunho · alterações ainda não salvas'}</span><button autoFocus type="button" onClick={onClose}><X size={16} />Voltar ao editor</button></div>
-    {splash ? <CallSplash /> : <PlanningCanvas planning={planning} onBack={onClose} />}
+    {splash ? <CallSplash /> : <PlanningCanvas planning={planning} onBack={onClose} ignorePast />}
   </dialog>
 }
