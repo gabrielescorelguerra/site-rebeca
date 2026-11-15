@@ -1,16 +1,31 @@
-# React + Vite
+# Site da Rebeca
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Um cantinho para os convites de ligação. React 19 + Vite, React Router, Tailwind CSS 4 e Supabase.
 
-Currently, two official plugins are available:
+## Rodando
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+cp .env.example .env   # preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
+npm run dev
+```
 
-## React Compiler
+Outros comandos: `npm run build`, `npm run lint` e `npm test` (testes das regras puras: migração de blocos, calendário, links, texturas).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Supabase
 
-## Expanding the ESLint configuration
+Rode `supabase-schema.sql` no SQL Editor. Ele cria a tabela `planning_config` (registros `main` para a call e `relationship-links` para os links) e o bucket público `call-media`, usado pelo upload de imagens do editor.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+> A autenticação atual é só demonstrativa e as políticas permitem escrita pública. Antes de guardar algo sensível é preciso migrar para Supabase Auth com RLS por papel.
+
+## Editor de call (`/admin`)
+
+O convite é uma lista de **blocos** numa grade de 12 colunas (`planning.blocks`):
+
+- **Biblioteca** (esquerda): arraste um bloco para o palco ou clique para adicionar; aba *Camadas* para reordenar; aba *Modelos* com layouts prontos.
+- **Palco** (centro): clique para selecionar, arraste a alça para mover, arraste a borda direita para mudar a largura. Desfazer/refazer com `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+S` publica, `Alt+setas` move com o teclado.
+- **Propriedades** (direita): conteúdo, estilo (moldura, forma, fonte, cor, posição, inclinação) e movimento de cada bloco; sem seleção, ajustes da página (encontro, tema, fundo, moldura e animações).
+
+**Elementos interativos** (grupo “Interativos” na biblioteca): confirmação de presença, votação, pergunta com texto, checklist, quiz, segredo (abre ao tocar, numa data ou com senha) e surpresa (chuva de corações). As respostas dela ficam na tabela `call_responses` (uma por bloco e por call) e aparecem no painel “Resposta dela” ao selecionar o bloco. Quando você visita `/planejamento` como admin ou no modo de teste, as respostas **não** são gravadas. A senha do bloco “Segredo” é só brincadeira: fica no código da página.
+
+Registros antigos (campos soltos como `showActivities`, `activities`…) são convertidos em blocos automaticamente ao abrir; os campos antigos continuam no registro. Publicar compara a versão carregada (`updated_at`) e avisa se a call foi alterada em outro lugar.

@@ -6,7 +6,7 @@ export default function TestModeBar() {
   const navigate = useNavigate()
   if (!testing) return null
   return <nav className="published-toolbar" aria-label="Modo de teste">
-    <span>Modo de teste · usuário comum</span>
+    <span>Modo de teste · usuário comum · respostas não são salvas</span>
     <button type="button" className="text-button" onClick={() => { stopUserTest(); navigate('/admin') }}>Encerrar teste e voltar ao admin</button>
   </nav>
 }
