@@ -1,5 +1,8 @@
 // Modelo de blocos — funções puras (sem React/Supabase) para poder testar.
-export const BLOCK_TYPES = ['heading', 'text', 'date', 'countdown', 'activities', 'links', 'button', 'calendar', 'note', 'image', 'icon', 'divider', 'spacer']
+export const INTERACTIVE_TYPES = ['rsvp', 'poll', 'question', 'checklist', 'reveal', 'quiz', 'surprise']
+export const BLOCK_TYPES = ['heading', 'text', 'date', 'countdown', 'activities', 'links', 'button', 'calendar', 'note', 'image', 'icon', 'divider', 'spacer', ...INTERACTIVE_TYPES]
+
+const opts = (...labels) => labels.map(label => ({ id: newId(), label }))
 
 export const newId = () => (globalThis.crypto?.randomUUID?.() ?? `id-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`)
 
@@ -29,6 +32,16 @@ const TYPE_DEFAULTS = {
   icon: () => ({ span: 3, props: { icon: 'heart', size: 56 }, style: { align: 'center', color: undefined } }),
   divider: () => ({ span: 12, props: { look: 'line' }, style: { opacity: 0.6 } }),
   spacer: () => ({ span: 12, props: { height: 40 }, style: {} }),
+  rsvp: () => ({ span: 12, props: { question: 'Você vem?', options: opts('Sim, claro 💗', 'Talvez', 'Não consigo dessa vez'), thanks: 'Anotado! Obrigado por responder.' }, style: { variant: 'tint', padding: 24 } }),
+  poll: () => ({ span: 12, props: { question: 'O que vamos jogar?', multiple: false, options: opts('Minecraft', 'Algo calminho', 'Surpresa'), thanks: 'Voto anotado!' }, style: { variant: 'tint', padding: 24 } }),
+  question: () => ({ span: 12, props: { prompt: 'Me conta: como foi o seu dia?', placeholder: 'Escreva aqui…', button: 'Enviar', thanks: 'Recebi, obrigado por contar ♡' }, style: { variant: 'tint', padding: 24 } }),
+  checklist: () => ({ span: 12, props: { label: 'antes da call', items: [{ id: newId(), name: 'Separar um lanchinho' }, { id: newId(), name: 'Carregar o fone' }] }, style: { variant: 'tint', padding: 24 } }),
+  reveal: () => ({ span: 12, props: { mode: 'tap', button: 'Toque para revelar', title: 'Surpresa!', text: 'Aqui vai a mensagem escondida.', unlockAt: '', code: '', hint: '' }, style: { variant: 'dashed', padding: 24 } }),
+  quiz: () => {
+    const options = opts('No cinema', 'Na praia', 'Em casa')
+    return { span: 12, props: { question: 'Onde foi o nosso primeiro encontro?', options, correctId: options[0].id, right: 'Acertou! 🎉', wrong: 'Quase… tenta de novo!' }, style: { variant: 'tint', padding: 24 } }
+  },
+  surprise: () => ({ span: 6, props: { label: 'Aperte aqui', message: 'Te amo!', icon: 'heart' }, style: { align: 'center' } }),
 }
 
 export function createBlock(type) {
@@ -39,7 +52,11 @@ export function createBlock(type) {
 export function cloneBlock(block) {
   const copy = structuredClone(block)
   copy.id = newId()
-  for (const key of ['items']) if (Array.isArray(copy.props?.[key])) copy.props[key] = copy.props[key].map(item => ({ ...item, id: newId() }))
+  const remap = {}
+  for (const key of ['items', 'options']) {
+    if (Array.isArray(copy.props?.[key])) copy.props[key] = copy.props[key].map(item => { const id = newId(); remap[item.id] = id; return { ...item, id } })
+  }
+  if (copy.props?.correctId && remap[copy.props.correctId]) copy.props.correctId = remap[copy.props.correctId]
   return copy
 }
 

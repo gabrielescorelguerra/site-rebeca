@@ -7,6 +7,7 @@ import IconByKey from './components/IconByKey'
 import { backgroundMotionKeyframe, fonts, legacyShape, motionVars, patternStyle, shadows, shapeRadius, variants, withAlpha } from './data/visuals'
 import { BlockSlot } from './components/Blocks'
 import { EditingContext, entranceStyle, loopStyle } from './components/blockStyle'
+import { ResponsesContext, useResponsesStore } from './components/responsesContext'
 import CallSplash from './components/CallSplash'
 import { callHasEnded } from './utils/callTime'
 import { validLink } from './utils/url'
@@ -80,7 +81,8 @@ function BlocksGrid({ planning }) {
   </div>
 }
 
-export function PlanningCanvas({ planning, preview = false, editing = null, ignorePast = false, onBack, onLogout }) {
+export function PlanningCanvas({ planning, preview = false, editing = null, ignorePast = false, persistResponses = false, onBack, onLogout }) {
+  const responses = useResponsesStore({ callKey: planning.eventId || 'main', persist: persistResponses })
   const ended = callHasEnded(planning)
   const hidden = planning.hasPlannedCall === false || (planning.hidePast !== false && ended && !ignorePast)
   const motion = planning.animationEnabled && (!editing || editing.animate)
@@ -113,9 +115,11 @@ export function PlanningCanvas({ planning, preview = false, editing = null, igno
         {onLogout && <button type="button" style={{ color: planning.backButtonColor }} onClick={onLogout}><LogOut size={13} aria-hidden="true" />sair</button>}
       </span>}
     </header>
-    <EditingContext.Provider value={editing}>
-      <div className="call-content">{content}</div>
-    </EditingContext.Provider>
+    <ResponsesContext.Provider value={responses}>
+      <EditingContext.Provider value={editing}>
+        <div className="call-content">{content}</div>
+      </EditingContext.Provider>
+    </ResponsesContext.Provider>
   </div>
 }
 
@@ -138,8 +142,8 @@ function Planning() {
   if (loadError) return <main className="call-splash site-shell"><Heart size={32} aria-hidden="true" /><h1>Não foi possível carregar a call.</h1><p role="alert">{loadError}</p><button className="studio-save" onClick={() => { setLoadError(''); setPlanning(null); setAttempt(value => value + 1) }}>Tentar novamente</button><Link className="text-button" to="/">Voltar ao início</Link></main>
   if (!planning) return <CallSplash />
   return <>
-    {admin && <nav className="published-toolbar" aria-label="Visualização do administrador"><span>Versão salva · é assim que os outros usuários veem</span><Link to="/admin">Voltar ao editor</Link></nav>}
-    <PlanningCanvas planning={planning} onBack={() => navigate('/')} onLogout={() => { logout(); navigate('/') }} />
+    {admin && <nav className="published-toolbar" aria-label="Visualização do administrador"><span>Versão salva · é assim que ela vê (as respostas dos testes não são salvas)</span><Link to="/admin">Voltar ao editor</Link></nav>}
+    <PlanningCanvas planning={planning} persistResponses={!admin} onBack={() => navigate('/')} onLogout={() => { logout(); navigate('/') }} />
   </>
 }
 

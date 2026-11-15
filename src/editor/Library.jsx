@@ -16,13 +16,16 @@ export default function Library({ blocks, selectedId, onSelect, onPaletteDown, o
     </div>
     {tab === 'add' && <>
       <p className="section-help">Arraste um bloco para o palco ou clique para adicionar.</p>
-      <div className="palette">
-        {blockMeta.map(({ type, icon: Icon, hint }) => <button
-          key={type} type="button" className="palette-item"
-          onPointerDown={event => onPaletteDown(event, type)}
-          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onInsert(type, null) } }}
-        ><Icon size={18} aria-hidden="true" /><strong>{blockLabels[type]}</strong><small>{hint}</small></button>)}
-      </div>
+      {[['Conteúdo', false], ['Interativos — ela responde ou descobre', true]].map(([title, interactive]) => <div key={title}>
+        <h3 className="palette-group">{title}</h3>
+        <div className="palette">
+          {blockMeta.filter(item => Boolean(item.interactive) === interactive).map(({ type, icon: Icon, hint }) => <button
+            key={type} type="button" className="palette-item"
+            onPointerDown={event => onPaletteDown(event, type)}
+            onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onInsert(type, null) } }}
+          ><Icon size={18} aria-hidden="true" /><strong>{blockLabels[type]}</strong><small>{hint}</small></button>)}
+        </div>
+      </div>)}
     </>}
     {tab === 'layers' && <ol className="layers">
       {blocks.map((block, index) => <li key={block.id} className={selectedId === block.id ? 'active' : ''}>

@@ -3,8 +3,9 @@ import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Copy, Plus, Tra
 import { newId } from '../data/blocks'
 import { entranceOptions, fontOptions, hoverOptions, loopOptions, shadowOptions, shapeOptions, variantOptions } from '../data/visuals'
 import { uploadImage } from '../data/media'
-import { ColorField, IconPicker, Range, SelectField, Section, Segmented, TextArea, TextField, Toggle } from './fields'
+import { ColorField, Field, IconPicker, Range, SelectField, Section, Segmented, TextArea, TextField, Toggle } from './fields'
 import { blockLabels } from './blockMeta'
+import ResponsesPanel from './ResponsesPanel'
 
 function ItemsEditor({ items = [], onChange, fields, makeItem, noun }) {
   const edit = (id, key, value) => onChange(items.map(item => item.id === id ? { ...item, [key]: value } : item))
@@ -103,6 +104,47 @@ function ContentTab({ block, set, onError }) {
     </>
     case 'divider': return <SelectField label="Estilo" value={p.look || 'line'} onChange={look => set({ look })} options={[['line', 'Linha'], ['dashed', 'Tracejada'], ['dots', 'Pontinhos'], ['hearts', 'Corações']]} />
     case 'spacer': return <Range label="Altura" value={p.height ?? 40} min={8} max={240} step={4} unit=" px" onChange={height => set({ height })} />
+    case 'rsvp': return <>
+      <TextField label="Pergunta" maxLength={160} value={p.question} onChange={question => set({ question })} />
+      <TextField label="Mensagem depois de responder" maxLength={160} value={p.thanks} onChange={thanks => set({ thanks })} />
+      <ItemsEditor noun="opção" items={p.options} onChange={options => set({ options })} makeItem={() => ({ id: newId(), label: '' })} fields={[{ key: 'label', label: 'Texto da opção', maxLength: 80 }]} />
+    </>
+    case 'poll': return <>
+      <TextField label="Pergunta" maxLength={160} value={p.question} onChange={question => set({ question })} />
+      <Toggle label="Pode escolher mais de uma" checked={p.multiple} onChange={multiple => set({ multiple })} />
+      <TextField label="Mensagem depois de votar" maxLength={160} value={p.thanks} onChange={thanks => set({ thanks })} />
+      <ItemsEditor noun="opção" items={p.options} onChange={options => set({ options })} makeItem={() => ({ id: newId(), label: '' })} fields={[{ key: 'label', label: 'Texto da opção', maxLength: 80 }]} />
+    </>
+    case 'question': return <>
+      <TextField label="Pergunta" maxLength={200} value={p.prompt} onChange={prompt => set({ prompt })} />
+      <TextField label="Dica dentro da caixa" maxLength={80} value={p.placeholder} onChange={placeholder => set({ placeholder })} />
+      <TextField label="Texto do botão" maxLength={40} value={p.button} onChange={button => set({ button })} />
+      <TextField label="Mensagem depois de enviar" maxLength={160} value={p.thanks} onChange={thanks => set({ thanks })} />
+    </>
+    case 'checklist': return <>
+      <TextField label="Título" maxLength={80} value={p.label} onChange={label => set({ label })} />
+      <ItemsEditor noun="item" items={p.items} onChange={items => set({ items })} makeItem={() => ({ id: newId(), name: '' })} fields={[{ key: 'name', label: 'Item', maxLength: 100 }]} />
+    </>
+    case 'quiz': return <>
+      <TextField label="Pergunta" maxLength={200} value={p.question} onChange={question => set({ question })} />
+      <SelectField label="Resposta certa" value={p.correctId} onChange={correctId => set({ correctId })} options={(p.options || []).map(option => [option.id, option.label || '(sem texto)'])} />
+      <TextField label="Quando acertar" maxLength={120} value={p.right} onChange={right => set({ right })} />
+      <TextField label="Quando errar" maxLength={120} value={p.wrong} onChange={wrong => set({ wrong })} />
+      <ItemsEditor noun="opção" items={p.options} onChange={options => set({ options })} makeItem={() => ({ id: newId(), label: '' })} fields={[{ key: 'label', label: 'Texto da opção', maxLength: 80 }]} />
+    </>
+    case 'reveal': return <>
+      <SelectField label="Como abre" value={p.mode || 'tap'} onChange={mode => set({ mode })} options={[['tap', 'Ao tocar'], ['date', 'Numa data e hora'], ['code', 'Com uma senha']]} />
+      <TextField label={p.mode === 'code' ? 'Texto acima da senha' : p.mode === 'date' ? 'Texto enquanto trancado' : 'Texto do botão'} maxLength={80} value={p.button} onChange={button => set({ button })} />
+      {p.mode === 'date' && <Field label="Abre em"><input className="admin-input" type="datetime-local" value={p.unlockAt || ''} onChange={event => set({ unlockAt: event.target.value })} /></Field>}
+      {p.mode === 'code' && <><TextField label="Senha" maxLength={40} value={p.code} onChange={code => set({ code })} hint="É uma brincadeira: a senha fica no código da página e não protege nada importante." /><TextField label="Dica (opcional)" maxLength={100} value={p.hint} onChange={hint => set({ hint })} /></>}
+      <TextField label="Título escondido" maxLength={100} value={p.title} onChange={title => set({ title })} />
+      <TextArea label="Mensagem escondida" rows={4} maxLength={1000} value={p.text} onChange={text => set({ text })} />
+    </>
+    case 'surprise': return <>
+      <TextField label="Texto do botão" maxLength={40} value={p.label} onChange={label => set({ label })} />
+      <TextField label="Mensagem que aparece" maxLength={160} value={p.message} onChange={message => set({ message })} />
+      <IconPicker label="O que cai na chuva" value={p.icon} onChange={icon => set({ icon })} />
+    </>
     default: return null
   }
 }
@@ -163,7 +205,7 @@ function MotionTab({ block, style, pageEnabled }) {
   </>
 }
 
-export default function BlockInspector({ block, api, pageEnabled, onError }) {
+export default function BlockInspector({ block, api, pageEnabled, onError, callKey }) {
   const [tab, setTab] = useState('content')
   const set = patch => api.setProps(block.id, patch)
   const style = patch => api.setStyle(block.id, patch)
@@ -173,7 +215,10 @@ export default function BlockInspector({ block, api, pageEnabled, onError }) {
       {[['content', 'Conteúdo'], ['style', 'Estilo'], ['motion', 'Movimento']].map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} type="button" onClick={() => setTab(key)}>{label}</button>)}
     </div>
     <div className="inspector-body" key={`${block.id}-${tab}`}>
-      {tab === 'content' && <ContentTab block={block} set={set} onError={onError} />}
+      {tab === 'content' && <>
+        <ContentTab block={block} set={set} onError={onError} />
+        {['rsvp', 'poll', 'question', 'checklist', 'quiz'].includes(block.type) && <ResponsesPanel block={block} callKey={callKey} />}
+      </>}
       {tab === 'style' && <StyleTab block={block} style={style} setSpan={span => api.setSpan(block.id, span)} />}
       {tab === 'motion' && <MotionTab block={block} style={style} pageEnabled={pageEnabled} />}
     </div>

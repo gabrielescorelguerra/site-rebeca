@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { calendarContent } from '../src/utils/calendar.js'
 import { callHasEnded } from '../src/utils/callTime.js'
 import { validLink } from '../src/utils/url.js'
-import { buildDefaultPlanning, cloneBlock, createBlock, defaultDate, normalizePlanning, BLOCK_TYPES } from '../src/data/blocks.js'
+import { buildDefaultPlanning, cloneBlock, createBlock, defaultDate, normalizePlanning, BLOCK_TYPES, INTERACTIVE_TYPES } from '../src/data/blocks.js'
 import { templates } from '../src/data/templates.js'
 import { patternOptions, patternStyle, variants, withAlpha } from '../src/data/visuals.js'
 
@@ -88,6 +88,16 @@ test('todo tipo de bloco pode ser criado e clonado com ids novos', () => {
     assert.notEqual(copy.id, block.id)
     if (block.props.items) assert.notEqual(copy.props.items[0].id, block.props.items[0].id)
   }
+})
+
+test('blocos interativos: padrões válidos e clone remapeia a resposta certa do quiz', () => {
+  for (const type of INTERACTIVE_TYPES) assert.ok(BLOCK_TYPES.includes(type), type)
+  const quiz = createBlock('quiz')
+  assert.ok(quiz.props.options.some(option => option.id === quiz.props.correctId))
+  const copy = cloneBlock(quiz)
+  assert.ok(copy.props.options.some(option => option.id === copy.props.correctId))
+  assert.notEqual(copy.props.correctId, quiz.props.correctId)
+  assert.ok(createBlock('rsvp').props.options.length >= 2)
 })
 
 test('modelos de layout só usam tipos e colunas válidos', () => {

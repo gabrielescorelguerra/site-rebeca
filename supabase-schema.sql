@@ -46,3 +46,20 @@ create policy "public can upload call media"
   for insert
   to anon, authenticated
   with check (bucket_id = 'call-media');
+
+-- Respostas da Rebeca aos elementos interativos dos convites (confirmação, votação, perguntas, checklist, quiz).
+-- Uma linha por bloco e por call (call_key = eventId da call). Escrita pública, como o resto do projeto.
+create table if not exists public.call_responses (
+  call_key text not null,
+  block_id text not null,
+  value jsonb not null check (octet_length(value::text) <= 4000),
+  updated_at timestamptz not null default now(),
+  primary key (call_key, block_id)
+);
+
+alter table public.call_responses enable row level security;
+
+create policy "public can read responses" on public.call_responses for select to anon, authenticated using (true);
+create policy "public can insert responses" on public.call_responses for insert to anon, authenticated with check (true);
+create policy "public can update responses" on public.call_responses for update to anon, authenticated using (true) with check (true);
+create policy "public can delete responses" on public.call_responses for delete to anon, authenticated using (true);

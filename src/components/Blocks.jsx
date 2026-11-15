@@ -1,6 +1,8 @@
 import { useContext, useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, CalendarDays, Clock3, Copy, ExternalLink, GripVertical, Heart, ImageIcon, Trash2 } from 'lucide-react'
 import IconByKey from './IconByKey'
+import InteractiveContent from './Interactive'
+import { INTERACTIVE_TYPES } from '../data/blocks'
 import { hoverOptions } from '../data/visuals'
 import { EditingContext, boxStyle, entranceStyle, loopStyle } from './blockStyle'
 import { validLink } from '../utils/url'
@@ -109,7 +111,7 @@ export function BlockContent({ block, planning, editing }) {
     case 'spacer':
       return <div style={{ height: p.height || 40 }} aria-hidden="true" />
     default:
-      return null
+      return INTERACTIVE_TYPES.includes(block.type) ? <InteractiveContent block={block} /> : null
   }
 }
 

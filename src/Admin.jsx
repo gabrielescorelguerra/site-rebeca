@@ -29,6 +29,11 @@ function validate(planning) {
     if (block.type === 'button' && p.url && !validLink(p.url)) return { id: block.id, message: `${where}use um endereço começando com https:// ou http://.` }
     if (block.type === 'button' && p.url && !p.label?.trim()) return { id: block.id, message: `${where}escreva o texto do botão.` }
     if (block.type === 'image' && p.url && !validLink(p.url)) return { id: block.id, message: `${where}o endereço da imagem precisa começar com https://.` }
+    if (['rsvp', 'poll', 'quiz'].includes(block.type) && (!p.options?.length || p.options.some(option => !option.label.trim()))) return { id: block.id, message: `${where}preencha o texto de todas as opções (e tenha pelo menos uma).` }
+    if (block.type === 'quiz' && !p.options?.some(option => option.id === p.correctId)) return { id: block.id, message: `${where}escolha a resposta certa.` }
+    if (block.type === 'checklist' && p.items?.some(item => !item.name.trim())) return { id: block.id, message: `${where}dê um nome a cada item.` }
+    if (block.type === 'reveal' && p.mode === 'code' && !p.code?.trim()) return { id: block.id, message: `${where}defina a senha.` }
+    if (block.type === 'reveal' && p.mode === 'date' && !Number.isFinite(new Date(p.unlockAt).getTime())) return { id: block.id, message: `${where}defina a data em que abre.` }
     if (block.type === 'activities' && p.items?.some(item => !item.name.trim())) return { id: block.id, message: `${where}dê um nome a cada atividade.` }
     if (block.type === 'links' && p.items?.some(item => !item.name.trim() || (item.url && !validLink(item.url)))) return { id: block.id, message: `${where}preencha o nome de cada link e use https:// ou http://.` }
   }
@@ -234,7 +239,7 @@ function Admin() {
       </section>
       <aside className="builder-inspector" aria-label="Propriedades">
         {selected
-          ? <BlockInspector block={selected} api={api} pageEnabled={planning.animationEnabled} onError={setError} />
+          ? <BlockInspector block={selected} api={api} pageEnabled={planning.animationEnabled} onError={setError} callKey={planning.eventId || 'main'} />
           : <PageInspector planning={planning} set={setPage} patch={patchPage} onError={setError} onReplay={replay} onSplash={() => setPreviewMode('splash')} />}
       </aside>
     </div>}

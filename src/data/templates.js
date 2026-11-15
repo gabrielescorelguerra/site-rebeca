@@ -50,4 +50,18 @@ export const templates = {
     ],
   },
 }
+templates.interactive = {
+  label: 'Convite interativo', note: 'Confirmação, votação, pergunta, quiz e uma surpresa.',
+  page: { panelEnabled: true, textAlign: 'left' },
+  build: () => [
+    make('heading', { props: { text: 'Você está convidada', level: 1 } }),
+    make('date'),
+    make('rsvp'),
+    make('poll'),
+    make('quiz'),
+    make('question'),
+    make('reveal'),
+    make('surprise', { span: 12, style: { align: 'center' } }),
+  ],
+}
 export const templateOptions = Object.entries(templates).map(([key, value]) => [key, value.label, value.note])

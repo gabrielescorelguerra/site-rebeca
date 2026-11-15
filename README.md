@@ -26,4 +26,6 @@ O convite é uma lista de **blocos** numa grade de 12 colunas (`planning.blocks`
 - **Palco** (centro): clique para selecionar, arraste a alça para mover, arraste a borda direita para mudar a largura. Desfazer/refazer com `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+S` publica, `Alt+setas` move com o teclado.
 - **Propriedades** (direita): conteúdo, estilo (moldura, forma, fonte, cor, posição, inclinação) e movimento de cada bloco; sem seleção, ajustes da página (encontro, tema, fundo, moldura e animações).
 
+**Elementos interativos** (grupo “Interativos” na biblioteca): confirmação de presença, votação, pergunta com texto, checklist, quiz, segredo (abre ao tocar, numa data ou com senha) e surpresa (chuva de corações). As respostas dela ficam na tabela `call_responses` (uma por bloco e por call) e aparecem no painel “Resposta dela” ao selecionar o bloco. Quando você visita `/planejamento` como admin ou no modo de teste, as respostas **não** são gravadas. A senha do bloco “Segredo” é só brincadeira: fica no código da página.
+
 Registros antigos (campos soltos como `showActivities`, `activities`…) são convertidos em blocos automaticamente ao abrir; os campos antigos continuam no registro. Publicar compara a versão carregada (`updated_at`) e avisa se a call foi alterada em outro lugar.
