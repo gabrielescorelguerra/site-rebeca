@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Copy, Plus, Trash2, Upload } from 'lucide-react'
 import { newId } from '../data/blocks'
-import { entranceOptions, fontOptions, hoverOptions, loopOptions, shadowOptions, shapeOptions, variantOptions } from '../data/visuals'
+import { effectOptions, entranceOptions, fontOptions, hoverOptions, loopOptions, shadowOptions, textEffectOptions, variantOptions } from '../data/visuals'
 import { uploadImage } from '../data/media'
-import { ColorField, Field, IconPicker, Range, SelectField, Section, Segmented, TextArea, TextField, Toggle } from './fields'
+import { ColorField, Field, IconPicker, Range, SelectField, Section, Segmented, ShapePicker, TextArea, TextField, Toggle } from './fields'
 import { blockLabels } from './blockMeta'
 import ResponsesPanel from './ResponsesPanel'
 
@@ -152,34 +152,44 @@ function ContentTab({ block, set, onError }) {
 function StyleTab({ block, style, setSpan }) {
   const s = block.style || {}
   const framed = (s.variant || 'none') !== 'none'
+  const shapeMasked = ['heart', 'star', 'cloud', 'diamond', 'hexagon'].includes(s.shape)
   return <>
-    <Section title="Tamanho e posição" open>
+    <Section title="Posição e tamanho" open>
+      <p className="section-help">Arraste o bloco no palco para posicioná-lo; aqui você ajusta com precisão.</p>
       <Range label="Largura (colunas de 12)" value={block.span} min={1} max={12} onChange={setSpan} />
-      <p className="section-help">Dica: arraste a borda direita do bloco no palco.</p>
+      <Range label="Largura máxima" auto value={s.maxWidth} fallback={600} min={80} max={1200} step={10} unit=" px" onChange={maxWidth => style({ maxWidth })} />
+      {s.maxWidth && <Segmented label="Posição na coluna" value={s.place || 'start'} onChange={place => style({ place })} options={[['start', 'Início'], ['center', 'Centro'], ['end', 'Fim']]} />}
+      <Range label="Altura mínima" auto value={s.minHeight} fallback={0} min={0} max={800} step={4} unit=" px" onChange={minHeight => style({ minHeight })} />
       <div className="field-grid">
-        <Range label="Deslocar →" value={s.offsetX ?? 0} min={-120} max={120} step={2} unit=" px" onChange={offsetX => style({ offsetX })} />
-        <Range label="Deslocar ↓" value={s.offsetY ?? 0} min={-120} max={120} step={2} unit=" px" onChange={offsetY => style({ offsetY })} />
+        <Range label="Mover ← →" value={s.offsetX ?? 0} min={-600} max={600} step={2} unit=" px" onChange={offsetX => style({ offsetX })} />
+        <Range label="Mover ↑ ↓" value={s.offsetY ?? 0} min={-600} max={600} step={2} unit=" px" onChange={offsetY => style({ offsetY })} />
       </div>
-      <Range label="Inclinação" value={s.rotate ?? 0} min={-20} max={20} step={0.5} unit="°" onChange={rotate => style({ rotate })} />
+      <Range label="Giro" value={s.rotate ?? 0} min={-180} max={180} step={1} unit="°" onChange={rotate => style({ rotate })} />
+      <Range label="Camada (frente / trás)" value={s.layer ?? 0} min={-5} max={5} onChange={layer => style({ layer })} />
+      <button type="button" className="secondary-button" onClick={() => style({ offsetX: 0, offsetY: 0, rotate: 0, layer: 0, minHeight: undefined, maxWidth: undefined })}>Voltar à posição original</button>
       <Range label="Transparência" value={s.opacity ?? 1} min={0.1} max={1} step={0.05} onChange={opacity => style({ opacity })} />
     </Section>
-    <Section title="Moldura">
-      <SelectField label="Tipo de moldura" value={s.variant || 'none'} onChange={variant => style({ variant })} options={variantOptions} />
+    <Section title="Formato e moldura" open>
+      <ShapePicker value={s.shape} onChange={shape => style({ shape })} />
+      {shapeMasked && <p className="section-help">Este formato recorta a moldura inteira, então a borda não aparece; o texto se ajusta dentro dele.</p>}
+      {s.shape === 'custom' && <Range label="Raio dos cantos" value={s.radius ?? 24} min={0} max={80} unit=" px" onChange={radius => style({ radius })} />}
+      <SelectField label="Moldura (cor e estilo)" value={s.variant || 'none'} onChange={variant => style({ variant })} options={variantOptions} />
       {s.variant === 'custom' && <>
         <div className="field-grid"><ColorField label="Cor" value={s.bg} fallback="#ffffff" onChange={bg => style({ bg })} /><ColorField label="2ª cor (degradê)" auto value={s.bg2} fallback="#f3d6df" onChange={bg2 => style({ bg2 })} /></div>
         {s.bg2 && <Range label="Ângulo do degradê" value={s.gradientAngle ?? 135} min={0} max={360} step={15} unit="°" onChange={gradientAngle => style({ gradientAngle })} />}
         <Range label="Opacidade do fundo" value={s.bgOpacity ?? 1} min={0} max={1} step={0.05} onChange={bgOpacity => style({ bgOpacity })} />
       </>}
-      <SelectField label="Forma" value={s.shape || 'rounded'} onChange={shape => style({ shape })} options={shapeOptions} />
-      {s.shape === 'custom' && <Range label="Raio dos cantos" value={s.radius ?? 24} min={0} max={80} unit=" px" onChange={radius => style({ radius })} />}
-      <Range label="Espaço interno" auto value={s.padding} fallback={framed ? 20 : 0} min={0} max={80} step={2} unit=" px" onChange={padding => style({ padding })} />
-      <Range label="Espessura da borda" auto value={s.borderWidth} fallback={0} min={0} max={8} unit=" px" onChange={borderWidth => style({ borderWidth })} />
-      {s.borderWidth > 0 && <div className="field-grid"><ColorField label="Cor da borda" auto value={s.borderColor} fallback="#bd7184" onChange={borderColor => style({ borderColor })} /><SelectField label="Traço" value={s.borderStyle || 'solid'} onChange={borderStyle => style({ borderStyle })} options={[['solid', 'Contínuo'], ['dashed', 'Tracejado'], ['dotted', 'Pontilhado'], ['double', 'Duplo']]} /></div>}
+      <Range label="Espaço interno extra" auto value={s.padding} fallback={framed ? 20 : 0} min={0} max={96} step={2} unit=" px" onChange={padding => style({ padding })} />
+      {!shapeMasked && <>
+        <Range label="Espessura da borda" auto value={s.borderWidth} fallback={0} min={0} max={8} unit=" px" onChange={borderWidth => style({ borderWidth })} />
+        {s.borderWidth > 0 && <div className="field-grid"><ColorField label="Cor da borda" auto value={s.borderColor} fallback="#bd7184" onChange={borderColor => style({ borderColor })} /><SelectField label="Traço" value={s.borderStyle || 'solid'} onChange={borderStyle => style({ borderStyle })} options={[['solid', 'Contínuo'], ['dashed', 'Tracejado'], ['dotted', 'Pontilhado'], ['double', 'Duplo']]} /></div>}
+        <Range label="Desfoque do fundo (vidro)" value={s.blur ?? 0} min={0} max={30} unit=" px" onChange={blur => style({ blur })} />
+      </>}
       <SelectField label="Sombra" value={s.shadow || 'theme'} onChange={shadow => style({ shadow })} options={shadowOptions} />
     </Section>
-    <Section title="Texto">
+    <Section title="Texto" open>
       <SelectField label="Fonte" value={s.fontFamily || 'inherit'} onChange={fontFamily => style({ fontFamily })} options={[['inherit', 'Da página'], ...fontOptions]} />
-      <Range label="Tamanho" auto value={s.size} fallback={18} min={10} max={160} unit=" px" onChange={size => style({ size })} />
+      <Range label="Tamanho" auto value={s.size} fallback={18} min={10} max={200} unit=" px" onChange={size => style({ size })} />
       <Segmented label="Alinhamento" value={s.align || 'inherit'} onChange={align => style({ align })} options={[['inherit', 'Auto'], ['left', 'Esquerda', AlignLeft], ['center', 'Centro', AlignCenter], ['right', 'Direita', AlignRight]]} />
       <div className="field-grid">
         <SelectField label="Peso" value={String(s.weight || '')} onChange={weight => style({ weight: weight ? Number(weight) : undefined })} options={[['', 'Padrão'], ['300', 'Fino'], ['400', 'Normal'], ['600', 'Seminegrito'], ['700', 'Negrito']]} />
@@ -187,8 +197,14 @@ function StyleTab({ block, style, setSpan }) {
       </div>
       <Toggle label="Itálico" checked={s.italic} onChange={italic => style({ italic })} />
       <Toggle label="Maiúsculas" checked={s.uppercase} onChange={uppercase => style({ uppercase })} />
-      <Range label="Espaço entre letras" auto value={s.spacing} fallback={0} min={-0.08} max={0.4} step={0.01} unit=" em" onChange={spacing => style({ spacing })} />
-      <Range label="Altura da linha" auto value={s.lineHeight} fallback={1.6} min={1} max={2.4} step={0.05} onChange={lineHeight => style({ lineHeight })} />
+      <Range label="Espaço entre letras" auto value={s.spacing} fallback={0} min={-0.08} max={0.5} step={0.01} unit=" em" onChange={spacing => style({ spacing })} />
+      <Range label="Altura da linha" auto value={s.lineHeight} fallback={1.6} min={0.8} max={2.6} step={0.05} onChange={lineHeight => style({ lineHeight })} />
+    </Section>
+    <Section title="Efeitos">
+      <SelectField label="Efeito no texto" value={s.textEffect || 'none'} onChange={textEffect => style({ textEffect })} options={textEffectOptions} />
+      <Toggle label="Texto em degradê" hint="Usa a cor do texto e uma segunda cor." checked={s.textGradient} onChange={textGradient => style({ textGradient })} />
+      {s.textGradient && <><ColorField label="Segunda cor do texto" value={s.color2} fallback="#d99aab" onChange={color2 => style({ color2 })} /><Range label="Ângulo" value={s.gradientAngle ?? 90} min={0} max={360} step={15} unit="°" onChange={gradientAngle => style({ gradientAngle })} /></>}
+      <SelectField label="Filtro do bloco" value={s.effect || 'none'} onChange={effect => style({ effect })} options={effectOptions} hint="Útil para fotos: preto e branco, sépia, sonhador…" />
     </Section>
   </>
 }

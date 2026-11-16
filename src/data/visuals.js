@@ -56,23 +56,58 @@ export const variants = {
 export const variantOptions = Object.entries(variants).map(([key, value]) => [key, value.label])
 
 /* ---------- Formas ---------- */
-export const shapes = {
-  rounded: '24px', soft: '12px', sharp: '0px', pill: '999px',
-  arch: '999px 999px 18px 18px', blob: '38% 62% 54% 46% / 43% 38% 62% 57%', leaf: '0 56px 0 56px', ticket: '10px 28px 10px 28px',
+// Cada forma define o recorte E como o conteúdo se acomoda dentro dela (recuo em % da largura,
+// proporção e centralização), para o texto acompanhar o formato e não ficar para fora.
+const mask = body => {
+  const url = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">${body}</svg>`)}")`
+  return url
 }
-export const shapeOptions = [
-  ['rounded', 'Arredondada'], ['soft', 'Cantos suaves'], ['sharp', 'Reta'], ['pill', 'Pílula'],
-  ['arch', 'Arco'], ['blob', 'Orgânica'], ['leaf', 'Folha'], ['ticket', 'Ingresso'], ['custom', 'Raio personalizado'],
-]
+export const shapeDefs = {
+  rounded: { label: 'Arredondado', radius: '24px' },
+  soft: { label: 'Cantos suaves', radius: '12px' },
+  sharp: { label: 'Reto', radius: '0px' },
+  pill: { label: 'Pílula', radius: '999px', pad: [1.4, 5, 1.4, 5], center: true },
+  circle: { label: 'Círculo', radius: '50%', pad: [15, 15, 15, 15], aspect: '1 / 1', center: true },
+  oval: { label: 'Oval', radius: '50%', pad: [9, 13, 9, 13], aspect: '1.6 / 1', center: true },
+  arch: { label: 'Arco', radius: '999px 999px 22px 22px', pad: [18, 10, 6, 10], center: true },
+  blob: { label: 'Orgânico', radius: '38% 62% 54% 46% / 43% 38% 62% 57%', pad: [9, 10, 9, 10], center: true },
+  leaf: { label: 'Folha', radius: '0 56px 0 56px', pad: [3, 6, 3, 6] },
+  ticket: { label: 'Ingresso', radius: '10px 28px 10px 28px' },
+  heart: { label: 'Coração', mask: mask('<path d="M50 93C50 93 5 62 5 33C5 17 17 7 31 7C40 7 47 12 50 19C53 12 60 7 69 7C83 7 95 17 95 33C95 62 50 93 50 93Z"/>'), pad: [22, 17, 30, 17], aspect: '1 / .92', center: true },
+  star: { label: 'Estrela', mask: mask('<polygon points="50,3 62,37 98,38 69,60 80,95 50,74 20,95 31,60 2,38 38,37"/>'), pad: [44, 33, 20, 33], aspect: '1 / 1', center: true },
+  cloud: { label: 'Nuvem', mask: mask('<ellipse cx="27" cy="62" rx="22" ry="22"/><ellipse cx="50" cy="42" rx="27" ry="30"/><ellipse cx="75" cy="60" rx="22" ry="24"/><rect x="27" y="62" width="48" height="22"/>'), pad: [28, 14, 20, 14], aspect: '1.7 / 1', center: true },
+  diamond: { label: 'Losango', mask: mask('<polygon points="50,2 98,50 50,98 2,50"/>'), pad: [27, 25, 27, 25], aspect: '1 / 1', center: true },
+  hexagon: { label: 'Hexágono', mask: mask('<polygon points="25,5 75,5 98,50 75,95 25,95 2,50"/>'), pad: [10, 13, 10, 13], aspect: '1.15 / 1', center: true },
+}
+export const shapeOptions = [...Object.entries(shapeDefs).map(([key, def]) => [key, def.label]), ['custom', 'Raio personalizado']]
+// A moldura grande da página só aceita formas que combinam com um painel largo.
+export const panelShapeOptions = [['rounded', 'Arredondada'], ['soft', 'Cantos suaves'], ['sharp', 'Reta'], ['arch', 'Arco'], ['blob', 'Orgânica'], ['leaf', 'Folha'], ['ticket', 'Ingresso'], ['custom', 'Raio personalizado']]
 // Formas antigas da moldura da página → formas seguras equivalentes.
 export const legacyShape = {
   rounded: 'rounded', square: 'sharp', 'soft-square': 'soft', circle: 'rounded', heart: 'rounded', triangle: 'rounded',
-  diamond: 'rounded', ticket: 'ticket', pill: 'pill', blob: 'blob', hexagon: 'leaf', notched: 'soft',
+  diamond: 'rounded', ticket: 'ticket', pill: 'rounded', blob: 'blob', hexagon: 'leaf', notched: 'soft',
+}
+
+// Estilo da forma: recorte + recuo/proporção/centralização do conteúdo. extra = recuo adicional em px.
+export function shapeStyle(shapeKey, radius, extra = 0) {
+  if (shapeKey === 'custom') return { css: { borderRadius: `${Number.isFinite(Number(radius)) ? Number(radius) : 24}px` }, center: false, masked: false }
+  const def = shapeDefs[shapeKey] || shapeDefs.rounded
+  const css = {}
+  if (def.radius) css.borderRadius = def.radius
+  if (def.mask) Object.assign(css, { WebkitMaskImage: def.mask, maskImage: def.mask, WebkitMaskSize: '100% 100%', maskSize: '100% 100%', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' })
+  if (def.aspect) css.aspectRatio = def.aspect
+  if (def.center) Object.assign(css, { display: 'flex', flexDirection: 'column', justifyContent: 'center' })
+  if (def.pad) css.padding = def.pad.map(p => (extra ? `calc(${p}% + ${extra}px)` : `${p}%`)).join(' ')
+  return { css, center: Boolean(def.center), masked: Boolean(def.mask), padded: Boolean(def.pad) }
 }
 export function shapeRadius(shape, radius) {
-  if (shape === 'custom') return `${Number.isFinite(Number(radius)) ? Number(radius) : 24}px`
-  return shapes[shape] || shapes.rounded
+  return shapeStyle(shape, radius).css.borderRadius || shapeDefs.rounded.radius
 }
+
+export const effectOptions = [['none', 'Nenhum'], ['gray', 'Preto e branco'], ['sepia', 'Sépia'], ['vivid', 'Cores vivas'], ['dreamy', 'Sonhador'], ['bright', 'Mais claro'], ['blur', 'Desfocado']]
+export const effectCss = { gray: 'grayscale(1)', sepia: 'sepia(.8)', vivid: 'saturate(1.6)', dreamy: 'blur(.6px) brightness(1.08) saturate(1.2)', bright: 'brightness(1.15)', blur: 'blur(3px)' }
+export const textEffectOptions = [['none', 'Nenhum'], ['soft', 'Sombra suave'], ['glow', 'Brilho'], ['retro', 'Sombra retrô'], ['outline', 'Só contorno']]
+export const dropShadowCss = { soft: 'drop-shadow(0 14px 24px rgba(48,38,42,.16))', deep: 'drop-shadow(0 20px 30px rgba(48,38,42,.35))', glow: 'drop-shadow(0 0 22px var(--accent-color))' }
 
 export const shadows = (accent = '#bd7184') => ({
   none: 'none', soft: '0 18px 50px rgba(48,38,42,.07)', deep: '0 24px 60px rgba(48,38,42,.22)', glow: `0 0 35px ${withAlpha(accent, .35)}`,

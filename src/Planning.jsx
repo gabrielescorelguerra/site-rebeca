@@ -46,7 +46,7 @@ function panelStyle(planning) {
     borderStyle: planning.panelBorderStyle,
     borderColor: variantColor,
     borderRadius: shapeRadius(planning.panelShape === 'custom' ? 'custom' : legacyShape[planning.panelShape] || planning.panelShape, planning.panelRadius),
-    padding: `min(${planning.panelPadding}px, calc(4cqw + 14px))`,
+    '--panel-pad': `${planning.panelPadding}px`,
   }
 }
 

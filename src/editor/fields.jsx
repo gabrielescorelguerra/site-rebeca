@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { iconOptions } from '../data/icons'
 import IconByKey from '../components/IconByKey'
+import { shapeOptions, shapeStyle } from '../data/visuals'
 
 export function Field({ label, hint, children }) {
   return <label className="field">{label && <span className="field-label">{label}</span>}{children}{hint && <small className="field-hint">{hint}</small>}</label>
@@ -74,4 +75,18 @@ export function IconPicker({ label = 'Ícone', value, onChange, allowNone }) {
 
 export function Section({ title, children, open = false }) {
   return <details className="inspector-section" open={open}><summary>{title}</summary><div className="inspector-section-body">{children}</div></details>
+}
+
+// Seletor visual de formato: cada botão mostra a forma de verdade.
+export function ShapePicker({ label = 'Formato', value, onChange }) {
+  return <div className="field" role="radiogroup" aria-label={label}>
+    <span className="field-label">{label}</span>
+    <div className="shape-picker">
+      {shapeOptions.map(([key, text]) => {
+        const { css } = shapeStyle(key, 16)
+        const preview = { borderRadius: css.borderRadius, WebkitMaskImage: css.WebkitMaskImage, maskImage: css.maskImage, WebkitMaskSize: '100% 100%', maskSize: '100% 100%', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }
+        return <button key={key} type="button" role="radio" aria-checked={(value || 'rounded') === key} onClick={() => onChange(key)}><i style={preview} aria-hidden="true" />{text}</button>
+      })}
+    </div>
+  </div>
 }

@@ -12,6 +12,8 @@ import { blockLabels } from './editor/blockMeta'
 import BlockInspector from './editor/BlockInspector'
 import PageInspector from './editor/PageInspector'
 import Library from './editor/Library'
+import QuickBar from './editor/QuickBar'
+import { focusInlineAt } from './components/inlineEdit'
 import { useBuilderDrag } from './editor/useBuilderDrag'
 import { useHistory } from './editor/useHistory'
 
@@ -129,8 +131,16 @@ function Admin() {
     setSelectedId(null)
   }
 
-  const { drag, indicator, resizing, startDrag, startResize } = useBuilderDrag({
-    surfaceRef, blocks: planning?.blocks ?? [], onMove: api.move, onInsert: api.insert, onResize: api.setSpan,
+  const editText = useCallback(slot => {
+    const el = typeof slot === 'string' ? document.querySelector(`[data-block-id="${CSS.escape(slot)}"]`) : slot
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    focusInlineAt(el, r.left + r.width / 2, r.top + r.height / 2)
+  }, [])
+
+  const { drag, indicator, resizing, startDrag, startResize, startBody, startRotate, startHeight } = useBuilderDrag({
+    surfaceRef, blocks: planning?.blocks ?? [], selectedId, onMove: api.move, onInsert: api.insert, onResize: api.setSpan,
+    onStyle: api.setStyle, onSelect: setSelectedId, onEditAt: (slot, x, y) => { if (!focusInlineAt(slot, x, y)) slot.focus() },
   })
 
   /* ---------- salvar ---------- */
@@ -187,6 +197,9 @@ function Admin() {
     onHandleDown: (event, id) => { setSelectedId(id); startDrag(event, { kind: 'move', id, label: blockLabels[planning.blocks.find(b => b.id === id)?.type] }) },
     onResizeDown: (event, id) => { setSelectedId(id); startResize(event, id) },
     onMoveBy: api.moveBy, onDuplicate: api.duplicate, onRemove: api.remove,
+    onBodyDown: startBody, onRotateDown: (event, id) => { setSelectedId(id); startRotate(event, id) }, onHeightDown: (event, id) => { setSelectedId(id); startHeight(event, id) },
+    onStyle: api.setStyle, onProps: api.setProps, onEditText: editText,
+    onNudge: (id, dx, dy) => { const b = planning.blocks.find(x => x.id === id); api.setStyle(id, { offsetX: (b.style.offsetX || 0) + dx, offsetY: (b.style.offsetY || 0) + dy }) },
   }
   const statusText = status === 'loading' ? 'Carregando sua call…' : status === 'error' ? 'Não foi possível carregar a call' : status === 'saving' ? 'Publicando…'
     : dirty ? `Alterações não publicadas${draftStored ? ' · rascunho guardado só neste navegador' : ''}`
@@ -235,7 +248,7 @@ function Admin() {
         <div className={`stage-surface ${device} ${drag ? 'is-dragging' : ''} ${resizing ? 'is-resizing' : ''}`} ref={surfaceRef}>
           <PlanningCanvas key={replayKey} planning={planning} editing={editing} ignorePast />
         </div>
-        <p className="stage-help">Clique num bloco para editar · arraste a alça para mover · arraste a borda direita para mudar a largura · Alt + setas move com o teclado.</p>
+        <p className="stage-help">Clique num bloco para selecionar e de novo no texto para digitar · arraste o bloco para posicioná-lo livremente · alça superior: trocar a ordem · borda direita: largura · círculo: girar · setas movem, Alt + setas reordenam.</p>
       </section>
       <aside className="builder-inspector" aria-label="Propriedades">
         {selected
@@ -243,6 +256,7 @@ function Admin() {
           : <PageInspector planning={planning} set={setPage} patch={patchPage} onError={setError} onReplay={replay} onSplash={() => setPreviewMode('splash')} />}
       </aside>
     </div>}
+    {selected && !drag && <QuickBar key={selected.id} block={selected} api={api} onEditText={editText} />}
     {drag && <div className="drag-ghost" style={{ left: drag.x, top: drag.y }}>{drag.label}</div>}
     {indicator && <div className="drop-indicator" style={indicator} />}
     {previewMode && planning && <CallPreview planning={planning} splash={previewMode === 'splash'} onClose={() => setPreviewMode(null)} />}

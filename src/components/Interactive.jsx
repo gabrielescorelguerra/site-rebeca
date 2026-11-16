@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Check, Lock, LockOpen, Send } from 'lucide-react'
 import IconByKey from './IconByKey'
 import { useBlockResponse } from './responsesContext'
+import Inline from './Inline'
+import { EditingContext } from './blockStyle'
 
 function Status({ status, persist, onRetry }) {
   if (status === 'saving') return <p className="ix-status" role="status">Salvando…</p>
@@ -20,7 +22,7 @@ function Choice({ block }) {
   const pick = id => save(multiple ? (chosen.includes(id) ? chosen.filter(x => x !== id) : [...chosen, id]) : id)
   const answered = multiple ? chosen.length > 0 : Boolean(chosen)
   return <div className="ix">
-    <p className="ix-question" id={`q-${block.id}`}>{p.question}</p>
+    <p className="ix-question" id={`q-${block.id}`}><Inline block={block} field="question" placeholder="Pergunta" /></p>
     <div className="ix-options" role={multiple ? 'group' : 'radiogroup'} aria-labelledby={`q-${block.id}`}>
       {(p.options || []).map(option => multiple
         ? <button key={option.id} type="button" className="ix-option" aria-pressed={isOn(option.id)} onClick={() => pick(option.id)}>{option.label}</button>
@@ -38,7 +40,7 @@ function Question({ block }) {
   const text = draft ?? (typeof value === 'string' ? value : '')
   const sent = typeof value === 'string' && value === text && value !== ''
   return <form className="ix" onSubmit={event => { event.preventDefault(); if (text.trim()) { save(text.trim()); setDraft(null) } }}>
-    <label className="ix-question" htmlFor={`a-${block.id}`}>{p.prompt}</label>
+    <label className="ix-question" htmlFor={`a-${block.id}`}><Inline block={block} field="prompt" placeholder="Pergunta" /></label>
     <textarea id={`a-${block.id}`} className="ix-input" rows={3} maxLength={600} placeholder={p.placeholder} value={text} onChange={event => setDraft(event.target.value)} />
     <div className="ix-row"><button type="submit" className="call-join filled" disabled={!text.trim() || sent || status === 'saving'}><Send size={15} aria-hidden="true" />{p.button || 'Enviar'}</button></div>
     {sent && status !== 'error' && p.thanks && <p className="ix-thanks">{p.thanks}</p>}
@@ -48,11 +50,12 @@ function Question({ block }) {
 
 function Checklist({ block }) {
   const { props: p } = block
+  const editing = useContext(EditingContext)
   const { value, status, persist, save } = useBlockResponse(block.id)
   const done = Array.isArray(value) ? value : []
   const toggle = id => save(done.includes(id) ? done.filter(x => x !== id) : [...done, id])
   return <div className="ix">
-    {p.label && <h2 className="b-label">{p.label}</h2>}
+    {(p.label || editing) && <h2 className="b-label"><Inline block={block} field="label" placeholder="Título" multiline={false} /></h2>}
     <ul className="ix-checklist">
       {(p.items || []).map(item => <li key={item.id}><label><input type="checkbox" checked={done.includes(item.id)} onChange={() => toggle(item.id)} /><span>{item.name}</span></label></li>)}
     </ul>
@@ -65,7 +68,7 @@ function Quiz({ block }) {
   const { value, status, persist, save } = useBlockResponse(block.id)
   const right = value && value === p.correctId
   return <div className="ix">
-    <p className="ix-question" id={`q-${block.id}`}>{p.question}</p>
+    <p className="ix-question" id={`q-${block.id}`}><Inline block={block} field="question" placeholder="Pergunta" /></p>
     <div className="ix-options" role="radiogroup" aria-labelledby={`q-${block.id}`}>
       {(p.options || []).map(option => <button key={option.id} type="button" role="radio" aria-checked={value === option.id} className={`ix-option ${value === option.id ? (right ? 'right' : 'wrong') : ''}`} onClick={() => save(option.id)}>{option.label}</button>)}
     </div>

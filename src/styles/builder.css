@@ -102,3 +102,22 @@
 .responses-panel dd { margin: 0; white-space: pre-line; }
 .responses-actions { display: flex; gap: 8px; }
 .responses-actions button { font-size: 11px; text-decoration: underline; color: #965365; cursor: pointer; }
+
+/* Barra flutuante de ajustes rápidos */
+.quickbar { position: fixed; top: 0; left: 0; z-index: 60; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: min(96vw, 640px); padding: 6px 8px; border: 1px solid #e3d3d8; border-radius: 14px; background: #fffdfa; box-shadow: 0 10px 30px #53334033; color: #6b4a55; }
+.qb-group { display: flex; align-items: center; gap: 2px; padding-right: 10px; border-right: 1px solid #efe3e6; }
+.qb-group:last-child { border-right: 0; padding-right: 0; }
+.quickbar button { display: grid; place-items: center; min-width: 32px; height: 32px; border-radius: 8px; color: #6b4a55; cursor: pointer; }
+.quickbar button:hover { background: #f4eaec; }
+.quickbar button[aria-pressed='true'] { background: #efe2e5; color: #935a70; }
+.quickbar button.danger:hover { background: #fbe4e1; color: #a4473f; }
+.quickbar output { min-width: 28px; text-align: center; font: 600 12px/1 Inter, system-ui, sans-serif; color: #8f6373; }
+.qb-color input { width: 28px; height: 28px; padding: 0; border: 1px solid #e3d3d8; border-radius: 8px; background: none; cursor: pointer; }
+.qb-select { display: flex; flex-direction: column; gap: 1px; font-size: 9px; color: #a28f96; }
+.qb-select select { max-width: 118px; height: 24px; padding: 0 4px; border: 1px solid #e6dfdc; border-radius: 6px; background: #fff; color: #4d3a41; font-size: 11px; }
+.quickbar button:focus-visible, .quickbar select:focus-visible, .qb-color input:focus-visible { outline: 2px solid #965365; outline-offset: 1px; }
+.shape-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.shape-picker button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border: 1px solid #ebe1de; border-radius: 10px; background: #fff; font-size: 10px; color: #7a5663; cursor: pointer; }
+.shape-picker button:hover { border-color: #bd7184; }
+.shape-picker button[aria-checked='true'] { border-color: #965365; background: #f8eef0; }
+.shape-picker i { display: block; width: 36px; height: 28px; background: #d99aab; }

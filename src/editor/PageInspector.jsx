@@ -3,7 +3,7 @@ import { AlignCenter, AlignLeft, AlignRight, Eye, Trash2, Upload, WandSparkles }
 import { newId } from '../data/blocks'
 import { themes } from '../data/themes'
 import { uploadImage } from '../data/media'
-import { backgroundMotionOptions, entranceOptions, fontOptions, hoverOptions, intensityOptions, legacyShape, loopOptions, patternOptions, shadowOptions, shapeOptions, speedOptions, variantOptions } from '../data/visuals'
+import { backgroundMotionOptions, entranceOptions, fontOptions, hoverOptions, intensityOptions, legacyShape, loopOptions, panelShapeOptions, patternOptions, shadowOptions, speedOptions, variantOptions } from '../data/visuals'
 import { iconOptions } from '../data/icons'
 import { ColorField, Field, Range, SelectField, Segmented, TextField, Toggle } from './fields'
 
@@ -98,13 +98,13 @@ function Background({ planning, set, onError }) {
 }
 
 function Frame({ planning, set }) {
-  const shape = shapeOptions.some(([key]) => key === planning.panelShape) ? planning.panelShape : legacyShape[planning.panelShape] || 'rounded'
+  const shape = panelShapeOptions.some(([key]) => key === planning.panelShape) ? planning.panelShape : legacyShape[planning.panelShape] || 'rounded'
   return <>
     <Toggle label="Agrupar tudo numa moldura" hint="Desligue para deixar os blocos soltos sobre o fundo e dar a cada um sua própria moldura." checked={planning.panelEnabled !== false} onChange={value => set('panelEnabled', value)} />
     {planning.panelEnabled !== false && <>
       <SelectField label="Acabamento" value={planning.style} onChange={value => set('style', value)} options={variantOptions.filter(([key]) => key !== 'none')} />
       {planning.style === 'custom' && <div className="field-grid"><ColorField label="Cor" value={planning.panelColor} onChange={value => set('panelColor', value)} /><Range label="Opacidade" value={planning.panelOpacity} min={0.1} max={1} step={0.05} onChange={value => set('panelOpacity', value)} /></div>}
-      <SelectField label="Forma" value={shape} onChange={value => set('panelShape', value)} options={shapeOptions} />
+      <SelectField label="Forma" value={shape} onChange={value => set('panelShape', value)} options={panelShapeOptions} />
       {shape === 'custom' && <Range label="Raio dos cantos" value={planning.panelRadius ?? 32} min={0} max={80} unit=" px" onChange={value => set('panelRadius', value)} />}
       <SelectField label="Sombra" value={planning.panelShadow} onChange={value => set('panelShadow', value)} options={shadowOptions} />
       <div className="field-grid"><Range label="Espessura da borda" value={planning.panelBorderWidth} min={0} max={8} unit=" px" onChange={value => set('panelBorderWidth', value)} /><SelectField label="Traço" value={planning.panelBorderStyle} onChange={value => set('panelBorderStyle', value)} options={[['solid', 'Contínuo'], ['dashed', 'Tracejado'], ['dotted', 'Pontilhado'], ['double', 'Duplo']]} /></div>

@@ -4,14 +4,14 @@ const THRESHOLD = 5
 
 // Arrastar e soltar por ponteiro (mouse, toque e caneta): reordenar blocos, inserir novos
 // da biblioteca e redimensionar a largura na grade de 12 colunas.
-export function useBuilderDrag({ surfaceRef, blocks, onMove, onInsert, onResize }) {
+export function useBuilderDrag({ surfaceRef, blocks, selectedId, onMove, onInsert, onResize, onStyle, onSelect, onEditAt }) {
   const getGrid = useCallback(() => surfaceRef.current?.querySelector('[data-blocks-grid]') ?? null, [surfaceRef])
   const [drag, setDrag] = useState(null) // { kind: 'move' | 'new', id, type, label, x, y }
   const [indicator, setIndicator] = useState(null)
   const [resizing, setResizing] = useState(null)
   const cleanup = useRef(null)
-  const latest = useRef({ blocks, onMove, onInsert, onResize })
-  useEffect(() => { latest.current = { blocks, onMove, onInsert, onResize } })
+  const latest = useRef({ blocks, selectedId, onMove, onInsert, onResize, onStyle, onSelect, onEditAt })
+  useEffect(() => { latest.current = { blocks, selectedId, onMove, onInsert, onResize, onStyle, onSelect, onEditAt } })
   useEffect(() => () => cleanup.current?.(), [])
 
   // Decide em qual posição o item cairia, a partir do ponteiro.
@@ -107,10 +107,12 @@ export function useBuilderDrag({ surfaceRef, blocks, onMove, onInsert, onResize 
     const gap = parseFloat(getComputedStyle(grid).columnGap) || 0
     const gridRect = grid.getBoundingClientRect()
     const column = (gridRect.width + gap) / 12
-    const left = slot.getBoundingClientRect().left
+    const slotRect = slot.getBoundingClientRect()
+    const left = slotRect.left
+    const grab = event.clientX - slotRect.right // o bloco pode estar deslocado: compensa
     setResizing(id)
     const onPointerMove = e => {
-      const span = Math.min(12, Math.max(1, Math.round((e.clientX - left + gap) / column)))
+      const span = Math.min(12, Math.max(1, Math.round((e.clientX - grab - left + gap) / column)))
       latest.current.onResize(id, span)
     }
     const finish = () => {
@@ -126,5 +128,97 @@ export function useBuilderDrag({ surfaceRef, blocks, onMove, onInsert, onResize 
     cleanup.current = finish
   }, [getGrid])
 
-  return { drag, indicator, resizing, startDrag: start, startResize }
+  const findBlock = id => latest.current.blocks.find(b => b.id === id)
+
+  // Arrastar o corpo do bloco = mover livremente (deslocamento X/Y). Clique sem arrastar: seleciona,
+  // e se já estava selecionado coloca o cursor no texto.
+  const startBody = useCallback((event, id) => {
+    if (event.button !== undefined && event.button !== 0) return
+    if (event.target.closest?.('.inline-edit') === document.activeElement) return // já digitando
+    cleanup.current?.()
+    const slot = event.currentTarget
+    const wasSelected = latest.current.selectedId === id
+    const origin = { x: event.clientX, y: event.clientY }
+    const base = findBlock(id)?.style || {}
+    const ox = base.offsetX || 0
+    const oy = base.offsetY || 0
+    let moved = false
+    const onPointerMove = e => {
+      const dx = e.clientX - origin.x
+      const dy = e.clientY - origin.y
+      if (!moved && Math.hypot(dx, dy) < 4) return
+      if (!moved) { moved = true; if (!wasSelected) latest.current.onSelect(id); window.getSelection()?.removeAllRanges() }
+      let nx = ox + dx
+      let ny = oy + dy
+      if (!e.altKey) { if (Math.abs(nx) < 6) nx = 0; if (Math.abs(ny) < 6) ny = 0 }
+      latest.current.onStyle(id, { offsetX: Math.round(nx), offsetY: Math.round(ny) })
+    }
+    const finish = apply => e => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+      cleanup.current = null
+      if (!apply || moved) return
+      if (wasSelected) latest.current.onEditAt(slot, e.clientX, e.clientY)
+      else latest.current.onSelect(id)
+    }
+    const onUp = finish(true)
+    const onCancel = finish(false)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    cleanup.current = () => finish(false)()
+  }, [])
+
+  const startRotate = useCallback((event, id) => {
+    if (event.button !== undefined && event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    cleanup.current?.()
+    const mover = event.currentTarget.closest('[data-mover]')
+    const rect = mover.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    const onPointerMove = e => {
+      let angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI + 90
+      if (angle > 180) angle -= 360
+      angle = Math.round(angle)
+      const snapped = Math.round(angle / 15) * 15
+      if (!e.altKey && Math.abs(angle - snapped) <= 4) angle = snapped
+      latest.current.onStyle(id, { rotate: Math.max(-180, Math.min(180, angle)) })
+    }
+    const finish = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+      cleanup.current = null
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+    cleanup.current = finish
+  }, [])
+
+  const startHeight = useCallback((event, id) => {
+    if (event.button !== undefined && event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    cleanup.current?.()
+    const frame = event.currentTarget.closest('[data-mover]')?.querySelector('.block-frame')
+    if (!frame) return
+    const top = frame.getBoundingClientRect().top
+    const onPointerMove = e => latest.current.onStyle(id, { minHeight: Math.max(0, Math.round((e.clientY - top) / 4) * 4) })
+    const finish = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+      cleanup.current = null
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+    cleanup.current = finish
+  }, [])
+
+  return { drag, indicator, resizing, startDrag: start, startResize, startBody, startRotate, startHeight }
 }

@@ -5,7 +5,7 @@ import { callHasEnded } from '../src/utils/callTime.js'
 import { validLink } from '../src/utils/url.js'
 import { buildDefaultPlanning, cloneBlock, createBlock, defaultDate, normalizePlanning, BLOCK_TYPES, INTERACTIVE_TYPES } from '../src/data/blocks.js'
 import { templates } from '../src/data/templates.js'
-import { patternOptions, patternStyle, variants, withAlpha } from '../src/data/visuals.js'
+import { patternOptions, patternStyle, shapeDefs, shapeStyle, variants, withAlpha } from '../src/data/visuals.js'
 
 test('validLink aceita só http/https', () => {
   assert.equal(validLink('https://discord.com'), true)
@@ -124,4 +124,18 @@ test('texturas e molduras são CSS válido (sem chaves vazias nem vírgulas falt
     assert.ok(variants[key], `moldura antiga ${key} precisa continuar existindo`)
   }
   assert.equal(withAlpha('#ff0000', 0.5), 'rgba(255, 0, 0, 0.5)')
+})
+
+test('formas ajustam o conteúdo: recuo, proporção e centralização acompanham o recorte', () => {
+  for (const [key, def] of Object.entries(shapeDefs)) {
+    const { css, center, masked } = shapeStyle(key, 24, 0)
+    assert.ok(def.radius || def.mask, `${key} precisa de recorte`)
+    if (def.mask) { assert.ok(masked && css.maskImage, key); assert.ok(def.pad && def.aspect, `${key} precisa de recuo e proporção`) }
+    if (def.pad) assert.match(css.padding, /%/, key)
+    if (def.center) assert.equal(css.display, 'flex', key)
+    assert.equal(center, Boolean(def.center))
+  }
+  assert.match(shapeStyle('circle', 0, 10).css.padding, /calc\(15% \+ 10px\)/)
+  assert.equal(shapeStyle('custom', 40).css.borderRadius, '40px')
+  assert.equal(shapeStyle('inexistente', 0).css.borderRadius, shapeDefs.rounded.radius)
 })
