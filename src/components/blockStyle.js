@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import { dropShadowCss, effectCss, entranceKeyframe, fonts, loopKeyframe, shadows, shapeStyle, variants, withAlpha } from '../data/visuals'
+import { dropShadowCss, effectCss, entranceKeyframe, fonts, hoverOptions, loopKeyframe, shadows, shapeStyle, variants, withAlpha } from '../data/visuals'
 
 // Contexto do editor: quando existe, os blocos ficam selecionáveis, arrastáveis e editáveis no lugar.
 export const EditingContext = createContext(null)
@@ -84,3 +84,19 @@ export function moverStyle(block, planning, masked) {
   if (drop) style.filter = drop
   return style
 }
+
+const hoverKeys = new Set(hoverOptions.map(([key]) => key))
+
+// Aparência comum do bloco (moldura, animações, alinhamento), usada pela grade e pelo canvas livre.
+export function blockVisual(block, index, planning, editing) {
+  const s = block.style || {}
+  const animated = planning.animationEnabled && (!editing || editing.animate)
+  const entrance = s.entrance && s.entrance !== 'inherit' ? s.entrance : planning.blockEntrance
+  const hover = animated && hoverKeys.has(s.hover) && s.hover !== 'none' ? `hv-${s.hover}` : ''
+  const delay = (Number(s.delay) || 0) + index * (Number(planning.blockStagger) || 0) + (Number(planning.animationDelay) || 0)
+  const { style: boxCss, masked, align } = boxStyle(block, planning)
+  const frameStyle = { ...boxCss, ...(animated && entrance !== 'none' ? entranceStyle(planning, entrance, delay) : {}) }
+  const frameClass = `block-frame ${hover} ${s.size ? 'has-fs' : ''} ${s.textGradient && s.color2 ? 'has-tg' : ''}`
+  return { animated, frameStyle, frameClass, masked, align, loop: animated ? loopStyle(s.loop) : undefined }
+}
+

@@ -20,6 +20,7 @@ const motionPresets = {
 const presetOptions = [['soft', 'Suave'], ['playful', 'Divertida'], ['dramatic', 'Dramática'], ['neon', 'Neon pulsante'], ['game', 'Jogo'], ['cinema', 'Cinema'], ['chaos', 'Caos controlado'], ['none', 'Sem animação']]
 
 const tabs = [['meeting', 'O encontro'], ['look', 'Aparência'], ['background', 'Fundo'], ['frame', 'Moldura'], ['motion', 'Movimento']]
+const canvasTabs = [['meeting', 'O encontro'], ['screen', 'Tela'], ['look', 'Aparência'], ['background', 'Fundo'], ['motion', 'Movimento']]
 
 function Meeting({ planning, set, patch }) {
   return <>
@@ -131,19 +132,40 @@ function Motion({ planning, set, patch, onReplay }) {
   </>
 }
 
-export default function PageInspector({ planning, set, patch, onError, onReplay, onSplash }) {
+function Screen({ planning, set, actions }) {
+  const canvas = planning.canvas
+  const setDesktop = patch => set('canvas', { ...canvas, desktop: { ...canvas.desktop, ...patch } })
+  return <>
+    <p className="section-help">A prancheta tem tamanho fixo e é ampliada para caber na tela de quem abre — por isso o que você vê aqui é o que ela vê.</p>
+    <Range label="Largura da prancheta (computador)" value={canvas.desktop.width} min={900} max={1600} step={20} unit=" px" onChange={width => setDesktop({ width })} />
+    <Range label="Altura mínima" value={canvas.desktop.minHeight} min={400} max={4000} step={50} unit=" px" onChange={minHeight => setDesktop({ minHeight })} />
+    <button type="button" className="secondary-button" onClick={actions.fitHeight}>Ajustar altura ao conteúdo</button>
+    <button type="button" className="secondary-button" onClick={actions.arrange}>Organizar todos os blocos em linhas</button>
+    <h3>Celular</h3>
+    <Toggle label="Posicionar à mão no celular" hint="Desligado: os blocos aparecem em coluna, na ordem de cima para baixo do computador." checked={canvas.mobile.custom} onChange={actions.setMobileCustom} />
+    <h3>Modo</h3>
+    <button type="button" className="secondary-button" onClick={actions.toGrid}>Voltar ao modo grade</button>
+    <p className="section-help">Voltar à grade não apaga as posições do canvas.</p>
+  </>
+}
+
+export default function PageInspector({ planning, set, patch, onError, onReplay, onSplash, canvasActions }) {
+  const isCanvas = planning.layoutMode === 'canvas'
+  const list = isCanvas ? canvasTabs : tabs
   const [tab, setTab] = useState('meeting')
+  const active = list.some(([key]) => key === tab) ? tab : 'meeting'
   return <div className="inspector">
     <div className="inspector-title"><h2>Página</h2><p>Ajustes da call inteira. Clique num bloco para editá-lo.</p></div>
     <div className="inspector-tabs" role="tablist" aria-label="Seções da página">
-      {tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} type="button" onClick={() => setTab(key)}>{label}</button>)}
+      {list.map(([key, label]) => <button key={key} role="tab" aria-selected={active === key} className={active === key ? 'active' : ''} type="button" onClick={() => setTab(key)}>{label}</button>)}
     </div>
-    <div className="inspector-body" key={tab}>
-      {tab === 'meeting' && <Meeting planning={planning} set={set} patch={patch} />}
-      {tab === 'look' && <Look planning={planning} set={set} patch={patch} />}
-      {tab === 'background' && <Background planning={planning} set={set} onError={onError} />}
-      {tab === 'frame' && <Frame planning={planning} set={set} />}
-      {tab === 'motion' && <Motion planning={planning} set={set} patch={patch} onReplay={onReplay} />}
+    <div className="inspector-body" key={active}>
+      {active === 'meeting' && <Meeting planning={planning} set={set} patch={patch} />}
+      {active === 'look' && <Look planning={planning} set={set} patch={patch} />}
+      {active === 'background' && <Background planning={planning} set={set} onError={onError} />}
+      {active === 'frame' && !isCanvas && <Frame planning={planning} set={set} />}
+      {active === 'screen' && isCanvas && <Screen planning={planning} set={set} actions={canvasActions} />}
+      {active === 'motion' && <Motion planning={planning} set={set} patch={patch} onReplay={onReplay} />}
     </div>
     <div className="inspector-footer"><button type="button" className="secondary-button" onClick={onSplash}><Eye size={15} />Ver tela de carregamento</button></div>
   </div>

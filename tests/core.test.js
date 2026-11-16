@@ -5,6 +5,7 @@ import { callHasEnded } from '../src/utils/callTime.js'
 import { validLink } from '../src/utils/url.js'
 import { buildDefaultPlanning, cloneBlock, createBlock, defaultDate, normalizePlanning, BLOCK_TYPES, INTERACTIVE_TYPES } from '../src/data/blocks.js'
 import { templates } from '../src/data/templates.js'
+import { DESIGN, alignRects, artboardSize, autoArrange, boundsOf, distributeRects, ensureFrames, resizeRect, snapMove, stackOrder } from '../src/data/canvasLayout.js'
 import { patternOptions, patternStyle, shapeDefs, shapeStyle, variants, withAlpha } from '../src/data/visuals.js'
 
 test('validLink aceita só http/https', () => {
@@ -138,4 +139,66 @@ test('formas ajustam o conteúdo: recuo, proporção e centralização acompanha
   assert.match(shapeStyle('circle', 0, 10).css.padding, /calc\(15% \+ 10px\)/)
   assert.equal(shapeStyle('custom', 40).css.borderRadius, '40px')
   assert.equal(shapeStyle('inexistente', 0).css.borderRadius, shapeDefs.rounded.radius)
+})
+
+const block = (id, type, frame, extra = {}) => ({ id, type, props: {}, style: {}, span: 12, frame: frame ? { desktop: frame } : undefined, ...extra })
+
+test('canvas: ímã encosta em bordas/centros e devolve as guias', () => {
+  const board = { width: 1200, height: 900 }
+  const near = snapMove({ x: 598, y: 100, w: 100, h: 50 }, [], board, 6) // centro do bloco em 648? borda esquerda perto do centro (600)
+  assert.equal(near.dx, 2)
+  assert.deepEqual(near.guides[0], { axis: 'x', pos: 600 })
+  const far = snapMove({ x: 300, y: 300, w: 100, h: 50 }, [{ x: 800, y: 700, w: 50, h: 50 }], board, 6)
+  assert.equal(far.dx, 0); assert.equal(far.dy, 0); assert.deepEqual(far.guides, [])
+  const align = snapMove({ x: 497, y: 0, w: 100, h: 40 }, [{ x: 500, y: 200, w: 80, h: 80 }], board, 6)
+  assert.equal(align.dx, 3)
+})
+
+test('canvas: alinhar e distribuir', () => {
+  const rects = [{ id: 'a', x: 100, y: 0, w: 100, h: 50 }, { id: 'b', x: 300, y: 80, w: 200, h: 50 }, { id: 'c', x: 700, y: 20, w: 100, h: 90 }]
+  assert.deepEqual(alignRects(rects, 'left', DESIGN.desktop), { a: { x: 100 }, b: { x: 100 }, c: { x: 100 } })
+  assert.deepEqual(alignRects(rects, 'right', DESIGN.desktop).b, { x: 600 })
+  assert.deepEqual(alignRects([rects[0]], 'center', { width: 1200, height: 900 }), { a: { x: 550 } }) // um só: alinha à prancheta
+  const spread = distributeRects(rects, 'x')
+  assert.equal(spread.a.x, 100); assert.equal(spread.c.x, 700)
+  assert.equal(spread.b.x, 100 + 100 + (700 + 100 - 100 - 400) / 2) // espaços iguais
+  assert.deepEqual(distributeRects(rects.slice(0, 2), 'x'), {})
+  assert.deepEqual(boundsOf(rects), { x: 100, y: 0, w: 700, h: 130 })
+})
+
+test('canvas: redimensionar por alça respeita mínimo e proporção', () => {
+  const r = { x: 100, y: 100, w: 200, h: 100 }
+  assert.deepEqual(resizeRect(r, 'e', 50, 0), { x: 100, y: 100, w: 250, h: 100 })
+  assert.deepEqual(resizeRect(r, 'nw', 20, 10), { x: 120, y: 110, w: 180, h: 90 })
+  assert.equal(resizeRect(r, 'e', -500, 0).w, 24)
+  const keep = resizeRect(r, 'se', 100, 0, { keepAspect: true })
+  assert.equal(keep.w / keep.h, 2)
+})
+
+test('canvas: blocos sem quadro vão para baixo; ordem de leitura vem de y e x', () => {
+  const blocks = [block('a', 'heading', { x: 100, y: 50, w: 700 }), block('b', 'text', null), block('c', 'image', { x: 20, y: 10, w: 300, h: 200 })]
+  const placed = ensureFrames(blocks, 'desktop', 1200)
+  assert.ok(placed[1].frame.desktop.y > 50, 'o sem quadro fica abaixo')
+  assert.equal(placed[0], blocks[0]) // os que já têm quadro não mudam
+  assert.deepEqual(stackOrder(placed).map(b => b.id), ['c', 'a', 'b'])
+  const size = artboardSize({ blocks: placed, canvas: { desktop: { width: 1200, minHeight: 100 } } }, 'desktop')
+  assert.ok(size.height > placed[1].frame.desktop.y)
+})
+
+test('canvas: organizar em linhas usa as colunas e não passa da prancheta', () => {
+  const list = [block('a', 'heading', null, { span: 12 }), block('b', 'text', null, { span: 8 }), block('c', 'links', null, { span: 4 }), block('d', 'note', null, { span: 6 })]
+  const out = autoArrange(list, 1200, { margin: 80, gap: 24, top: 60 })
+  const f = id => out.find(b => b.id === id).frame.desktop
+  assert.equal(f('a').x, 80); assert.equal(f('a').w, 1040)
+  assert.equal(f('b').y, f('c').y) // 8 + 4 colunas na mesma linha
+  assert.ok(f('c').x > f('b').x)
+  assert.ok(f('d').y > f('b').y)
+  for (const b of out) assert.ok(b.frame.desktop.x + b.frame.desktop.w <= 1200 - 80 + 1)
+})
+
+test('canvas: registro com layoutMode canvas ganha quadros ao normalizar', () => {
+  const result = normalizePlanning({ layoutMode: 'canvas', blocks: [{ id: 'x', type: 'text', props: { text: 'oi' } }] })
+  assert.ok(result.blocks[0].frame.desktop.w > 0)
+  assert.equal(result.canvas.mobile.custom, false)
+  assert.equal(normalizePlanning({}).layoutMode, 'grid')
 })

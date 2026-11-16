@@ -3,36 +3,15 @@ import { CalendarDays, Heart, LogOut } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { logout, useAccess } from './lib/access'
 import { loadPlanning } from './data/planning'
-import IconByKey from './components/IconByKey'
-import { backgroundMotionKeyframe, fonts, legacyShape, motionVars, patternStyle, shadows, shapeRadius, variants, withAlpha } from './data/visuals'
+import PageBackground from './components/PageBackground'
+import { pageStyle } from './components/pageStyle'
+import { CanvasStage } from './components/CanvasView'
+import { legacyShape, motionVars, shadows, shapeRadius, variants, withAlpha } from './data/visuals'
 import { BlockSlot } from './components/Blocks'
 import { EditingContext, entranceStyle, loopStyle } from './components/blockStyle'
 import { ResponsesContext, useResponsesStore } from './components/responsesContext'
 import CallSplash from './components/CallSplash'
 import { callHasEnded } from './utils/callTime'
-import { validLink } from './utils/url'
-
-const iconCells = Array.from({ length: 48 }, (_, index) => index)
-
-function safeImage(url) {
-  return typeof url === 'string' && (validLink(url) || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(url))
-}
-
-export function BackgroundIconLayer({ planning }) {
-  if (!planning.backgroundIconEnabled || !planning.backgroundIcon) return null
-  const variety = ['heart', 'sparkles', 'star', 'flower', 'moon', 'music', 'gamepad', 'coffee', 'cat', 'crown']
-  const keys = planning.backgroundIcon === 'random' ? variety : [planning.backgroundIcon]
-  const spacing = planning.backgroundIconSpacing
-  return <div
-    className="planning-icons"
-    style={{ gridAutoRows: `${spacing}px`, color: planning.backgroundIconColor, opacity: planning.backgroundIconOpacity, padding: `${spacing / 2}px`, gap: `${spacing / 2}px`, ...motionVars(planning) }}
-    aria-hidden="true"
-  >
-    {iconCells.map(position => {
-      return <IconByKey key={position} name={keys[position % keys.length]} size={planning.backgroundIconSize} strokeWidth={1.5} style={{ transform: `rotate(${planning.backgroundIconRotation}deg)` }} />
-    })}
-  </div>
-}
 
 function panelStyle(planning) {
   const base = variants[planning.style] ? planning.style : 'minimal'
@@ -81,33 +60,20 @@ function BlocksGrid({ planning }) {
   </div>
 }
 
-export function PlanningCanvas({ planning, preview = false, editing = null, ignorePast = false, persistResponses = false, onBack, onLogout }) {
+export function PlanningCanvas({ planning, preview = false, editing = null, ignorePast = false, persistResponses = false, forceGrid = false, onBack, onLogout }) {
   const responses = useResponsesStore({ callKey: planning.eventId || 'main', persist: persistResponses })
   const ended = callHasEnded(planning)
   const hidden = planning.hasPlannedCall === false || (planning.hidePast !== false && ended && !ignorePast)
   const motion = planning.animationEnabled && (!editing || editing.animate)
-  const canvasStyle = {
-    backgroundColor: planning.backgroundColor,
-    ...(planning.backgroundGradient ? { backgroundImage: `linear-gradient(${planning.backgroundGradientAngle}deg, ${planning.backgroundColor}, ${planning.backgroundGradientColor})` } : {}),
-    color: planning.textColor,
-    '--accent-color': planning.accentColor,
-    '--content-offset': `${planning.contentOffset}px`,
-    fontFamily: fonts[planning.fontFamily] || fonts.sans,
-    fontSize: `${planning.baseFontSize || 18}px`,
-    '--block-gap': `${planning.blockGap ?? 20}px`,
-    ...motionVars(planning),
-  }
   const content = hidden && !(editing && planning.hasPlannedCall !== false)
     ? <CallEmpty ended={planning.hasPlannedCall !== false && ended} />
     : <>
       {editing && planning.hasPlannedCall === false && <p className="editing-banner">A call está desativada: ela verá “Sem call planejada”. Você ainda pode editar os blocos.</p>}
-      <BlocksView planning={planning} />
+      {planning.layoutMode === 'canvas' && !forceGrid ? <CanvasStage planning={planning} /> : <BlocksView planning={planning} />}
     </>
 
-  return <div className={`planning-canvas ${preview ? 'is-preview' : ''} ${editing ? 'is-editing' : ''}`} style={canvasStyle} onClick={() => editing?.onSelect(null)}>
-    {safeImage(planning.backgroundImage) && <div className="planning-image" style={{ backgroundImage: `url(${JSON.stringify(planning.backgroundImage)})`, opacity: planning.backgroundImageOpacity, backgroundPosition: planning.backgroundImagePosition, filter: planning.backgroundImageBlur ? `blur(${planning.backgroundImageBlur}px)` : undefined, ...(motion && backgroundMotionKeyframe[planning.backgroundMotion] ? { animation: `${backgroundMotionKeyframe[planning.backgroundMotion]} var(--animation-duration) ease-in-out infinite` } : {}) }} />}
-    {planning.backgroundPattern !== 'none' && <div className="planning-pattern" style={{ ...patternStyle(planning.backgroundPattern, planning.accentColor, planning.textColor), opacity: planning.backgroundPatternOpacity ?? 1 }} />}
-    <BackgroundIconLayer planning={planning} />
+  return <div className={`planning-canvas ${preview ? 'is-preview' : ''} ${editing ? 'is-editing' : ''}`} style={pageStyle(planning)} onClick={() => editing?.onSelect(null)}>
+    <PageBackground planning={planning} motion={motion} />
     <header className="call-header">
       <span><Heart size={15} fill="currentColor" aria-hidden="true" />rebeca</span>
       {preview || editing ? <span style={{ color: planning.backButtonColor }}>voltar para o começo</span> : <span className="call-header-actions">

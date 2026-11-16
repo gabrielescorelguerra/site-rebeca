@@ -90,3 +90,10 @@ export function ShapePicker({ label = 'Formato', value, onChange }) {
     </div>
   </div>
 }
+
+export function NumberField({ label, value, onChange, min, max, step = 1, unit = 'px', placeholder }) {
+  return <label className="field number-field">
+    <span className="field-label">{label}</span>
+    <span className="number-input"><input className="admin-input" type="number" min={min} max={max} step={step} value={value ?? ''} placeholder={placeholder} onChange={event => onChange(event.target.value === '' ? undefined : Number(event.target.value))} /><em>{unit}</em></span>
+  </label>
+}

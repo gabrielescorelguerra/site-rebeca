@@ -160,3 +160,22 @@
 .ix-burst i { position: absolute; left: var(--x); top: 0; font-size: var(--s); color: var(--accent-color); animation: ix-fly 1.8s ease-out var(--d) both; }
 @keyframes ix-fly { from { opacity: 1; transform: translateY(0) scale(.6); } to { opacity: 0; transform: translateY(-190px) rotate(25deg) scale(1.1); } }
 @media (prefers-reduced-motion: reduce) { .ix-burst { display: none; } }
+
+/* Canvas livre: prancheta de largura fixa, ampliada para caber na tela */
+.cv-stage { width: 100%; }
+.cv-center { display: flex; justify-content: center; }
+.cv-sizer { position: relative; flex-shrink: 0; }
+.cv-artboard { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cv-block { position: absolute; display: flex; flex-direction: column; min-width: 0; }
+.cv-mover, .cv-fill { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.cv-fill > .block-frame { flex: 1; }
+.cv-block .block-frame { overflow-wrap: anywhere; }
+.b-shape { position: absolute; inset: 0; }
+.cv-block .b-image { height: 100%; }
+.cv-block .b-image img { height: 100%; }
+.cv-stack { padding-inline: clamp(16px, 6cqw, 96px); }
+.planning-canvas:has(.cv-stage) .call-content { padding-inline: 0; }
+
+/* O canvas não depende da largura da janela: cada prancheta aplica as próprias regras de tamanho. */
+.cv-artboard[data-device='desktop'] .block-frame.has-fs { font-size: calc(var(--fs) * 1px) !important; }
+.cv-artboard[data-device='mobile'] .block-frame.has-fs { font-size: calc(max(var(--fs) * .55, min(var(--fs), 24)) * 1px) !important; }

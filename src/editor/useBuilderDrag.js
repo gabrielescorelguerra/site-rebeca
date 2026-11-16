@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { sizeFor } from '../data/canvasLayout'
 
 const THRESHOLD = 5
 
 // Arrastar e soltar por ponteiro (mouse, toque e caneta): reordenar blocos, inserir novos
 // da biblioteca e redimensionar a largura na grade de 12 colunas.
-export function useBuilderDrag({ surfaceRef, blocks, selectedId, onMove, onInsert, onResize, onStyle, onSelect, onEditAt }) {
+export function useBuilderDrag({ surfaceRef, canvasApiRef, blocks, selectedId, onMove, onInsert, onInsertAt, onResize, onStyle, onSelect, onEditAt }) {
   const getGrid = useCallback(() => surfaceRef.current?.querySelector('[data-blocks-grid]') ?? null, [surfaceRef])
   const [drag, setDrag] = useState(null) // { kind: 'move' | 'new', id, type, label, x, y }
   const [indicator, setIndicator] = useState(null)
   const [resizing, setResizing] = useState(null)
   const cleanup = useRef(null)
-  const latest = useRef({ blocks, selectedId, onMove, onInsert, onResize, onStyle, onSelect, onEditAt })
-  useEffect(() => { latest.current = { blocks, selectedId, onMove, onInsert, onResize, onStyle, onSelect, onEditAt } })
+  const latest = useRef({ blocks, selectedId, onMove, onInsert, onInsertAt, onResize, onStyle, onSelect, onEditAt })
+  useEffect(() => { latest.current = { blocks, selectedId, onMove, onInsert, onInsertAt, onResize, onStyle, onSelect, onEditAt } })
   useEffect(() => () => cleanup.current?.(), [])
 
   // Decide em qual posição o item cairia, a partir do ponteiro.
@@ -68,6 +69,16 @@ export function useBuilderDrag({ surfaceRef, blocks, selectedId, onMove, onInser
       if (!moved && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < THRESHOLD) return
       moved = true
       setDrag({ ...source, x: e.clientX, y: e.clientY })
+      const canvas = canvasApiRef?.current
+      if (canvas && source.kind === 'new') {
+        // canvas livre: solta o bloco exatamente onde o ponteiro está
+        const point = canvas.pointToDesign(e.clientX, e.clientY)
+        const size = sizeFor(source.type)
+        const zoom = canvas.zoom()
+        drop = point ? { point } : null
+        setIndicator(point ? { ghost: true, left: e.clientX - size.w * zoom / 2, top: e.clientY - 24 * zoom, width: size.w * zoom, height: (size.h || 56) * zoom } : null)
+        return
+      }
       drop = resolveDrop(e.clientX, e.clientY, source.kind === 'move' ? source.id : null)
       setIndicator(drop && !drop.same ? drop.rect : null)
     }
@@ -83,6 +94,7 @@ export function useBuilderDrag({ surfaceRef, blocks, selectedId, onMove, onInser
       if (!apply) return
       if (!moved) { if (source.kind === 'new') latest.current.onInsert(source.type, null); return }
       if (!drop || drop.same) return
+      if (drop.point) { latest.current.onInsertAt(source.type, drop.point); return }
       if (source.kind === 'move') latest.current.onMove(source.id, drop.index)
       else latest.current.onInsert(source.type, drop.index)
     }
@@ -94,7 +106,7 @@ export function useBuilderDrag({ surfaceRef, blocks, selectedId, onMove, onInser
     window.addEventListener('pointercancel', onCancel)
     window.addEventListener('keydown', onKey)
     cleanup.current = () => finish(false)
-  }, [resolveDrop])
+  }, [resolveDrop, canvasApiRef])
 
   const startResize = useCallback((event, id) => {
     if (event.button !== undefined && event.button !== 0) return

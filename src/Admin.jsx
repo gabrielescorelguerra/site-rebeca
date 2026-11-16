@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Eye, Heart, Maximize2, Monitor, Redo2, Save, Settings2, Smartphone, Undo2, WandSparkles } from 'lucide-react'
+import { ArrowLeft, Eye, Heart, Maximize2, Monitor, PanelLeft, PanelRight, Redo2, Save, Settings2, Smartphone, Undo2, WandSparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { loadPlanningRecord, savePlanning } from './data/planning'
 import { cloneBlock, createBlock, newId, normalizePlanning } from './data/blocks'
+import { DESIGN, autoArrange, contentBottom, ensureFrames, sizeFor, withFrame } from './data/canvasLayout'
+import { legacyShape, variants } from './data/visuals'
+import { measureLayout } from './editor/measureLayout'
+import CanvasEditor from './editor/CanvasEditor'
+import MultiInspector from './editor/MultiInspector'
 import { templates } from './data/templates'
 import { validLink } from './utils/url'
 import { PlanningCanvas } from './Planning'
@@ -53,7 +58,16 @@ function Admin() {
   const [error, setError] = useState('')
   const [conflict, setConflict] = useState(false)
   const [retry, setRetry] = useState(0)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selection, setSelection] = useState([])
+  const selectedId = selection.length === 1 ? selection[0] : null
+  const setSelectedId = useCallback(value => setSelection(prev => {
+    const current = prev.length === 1 ? prev[0] : null
+    const next = typeof value === 'function' ? value(current) : value
+    return next ? [next] : []
+  }), [])
+  const [busy, setBusy] = useState('')
+  const [hidden, setHidden] = useState({ library: false, inspector: false })
+  const canvasApiRef = useRef(null)
   const [device, setDevice] = useState('desktop')
   const [animate, setAnimate] = useState(false)
   const [replayKey, setReplayKey] = useState(0)
@@ -113,6 +127,55 @@ function Admin() {
     remove: id => { setDraftStored(false); commit(p => ({ ...p, blocks: p.blocks.filter(b => b.id !== id) })); setSelectedId(current => current === id ? null : current) },
     move: (id, toIndex) => { setDraftStored(false); commit(p => { const from = p.blocks.findIndex(b => b.id === id); if (from < 0 || from === toIndex) return p; const next = [...p.blocks]; const [item] = next.splice(from, 1); next.splice(toIndex, 0, item); return { ...p, blocks: next } }) },
     moveBy: (id, delta) => { setDraftStored(false); commit(p => { const from = p.blocks.findIndex(b => b.id === id); const to = from + delta; if (from < 0 || to < 0 || to >= p.blocks.length) return p; const next = [...p.blocks]; const [item] = next.splice(from, 1); next.splice(to, 0, item); return { ...p, blocks: next } }) },
+    // ----- canvas livre -----
+    setFrames: (map, dev, key = 'frame') => {
+      setDraftStored(false)
+      commit(p => {
+        const width = Number(p.canvas?.[dev]?.width) || DESIGN[dev].width
+        const ensured = ensureFrames(p.blocks, dev, width)
+        return { ...p, blocks: ensured.map(b => (map[b.id] ? withFrame(b, dev, map[b.id]) : b)) }
+      }, `frame:${key}:${Object.keys(map).join(',')}`)
+    },
+    insertAt: (type, point, dev = 'desktop') => {
+      const block = createBlock(type)
+      const size = sizeFor(type)
+      setDraftStored(false)
+      commit(p => {
+        const width = Number(p.canvas?.[dev]?.width) || DESIGN[dev].width
+        const w = Math.min(size.w, width - 40)
+        const x = point ? point.x - w / 2 : (width - w) / 2
+        const y = point ? point.y - 24 : contentBottom(p.blocks, dev) + 40
+        const frame = { x: Math.round(Math.max(0, Math.min(x, width - w))), y: Math.round(Math.max(0, y)), w, ...(size.h ? { h: size.h } : {}) }
+        return { ...p, blocks: [...p.blocks, withFrame(block, dev, frame)] }
+      })
+      setSelection([block.id])
+    },
+    removeMany: ids => { setDraftStored(false); commit(p => ({ ...p, blocks: p.blocks.filter(b => !ids.includes(b.id)) })); setSelection([]) },
+    duplicateMany: ids => {
+      const created = []
+      setDraftStored(false)
+      commit(p => {
+        const extra = p.blocks.filter(b => ids.includes(b.id)).map(b => { const c = cloneBlock(b); created.push(c.id); return c })
+        return { ...p, blocks: [...p.blocks, ...extra] }
+      })
+      setSelection(created)
+    },
+    zOrder: (ids, op) => {
+      setDraftStored(false)
+      commit(p => {
+        const picked = p.blocks.filter(b => ids.includes(b.id))
+        const rest = p.blocks.filter(b => !ids.includes(b.id))
+        if (op === 'front') return { ...p, blocks: [...rest, ...picked] }
+        if (op === 'back') return { ...p, blocks: [...picked, ...rest] }
+        const next = [...p.blocks]
+        const order = op === 'forward' ? [...next.keys()].reverse() : [...next.keys()]
+        for (const i of order) {
+          const j = op === 'forward' ? i + 1 : i - 1
+          if (ids.includes(next[i].id) && next[j] && !ids.includes(next[j].id)) [next[i], next[j]] = [next[j], next[i]]
+        }
+        return { ...p, blocks: next }
+      })
+    },
     insert: (type, index) => {
       const block = createBlock(type)
       setDraftStored(false)
@@ -122,14 +185,89 @@ function Admin() {
       })
       setSelectedId(block.id)
     },
-  }), [commit, mapBlock, selectedId])
+  }), [commit, mapBlock, selectedId, setSelectedId])
+
+  const canvasMode = planning?.layoutMode === 'canvas'
+  const canvasWidth = Number(planning?.canvas?.desktop?.width) || DESIGN.desktop.width
 
   const applyTemplate = key => {
     const template = templates[key]
     setDraftStored(false)
-    commit(p => ({ ...p, ...template.page, blocks: template.build() }))
-    setSelectedId(null)
+    commit(p => {
+      const blocks = template.build()
+      return { ...p, ...template.page, blocks: p.layoutMode === 'canvas' ? autoArrange(blocks, Number(p.canvas?.desktop?.width) || DESIGN.desktop.width) : blocks }
+    })
+    setSelection([])
   }
+
+  // Converte a grade em canvas medindo onde cada bloco aparece de verdade (sem mudar a aparência).
+  const switchToCanvas = async () => {
+    if (busy) return
+    setBusy('Convertendo para o canvas…'); setError('')
+    try {
+      const firstTime = !planning.blocks.some(b => b.frame?.desktop)
+      let blocks = planning.blocks
+      let canvas = planning.canvas
+      if (blocks.some(b => !b.frame?.desktop)) {
+        const m = await measureLayout(planning, canvasWidth, { forceGrid: true })
+        const dy = 40
+        blocks = blocks.map(b => {
+          const r = m.frames[b.id]
+          if (b.frame?.desktop || !r) return b
+          const fixed = ['image', 'shape', 'spacer'].includes(b.type)
+          return withFrame(b, 'desktop', { x: Math.round(r.x + (b.style?.offsetX || 0)), y: Math.round(r.y + dy + (b.style?.offsetY || 0)), w: Math.round(r.w), ...(fixed ? { h: Math.round(r.h) } : {}), ...(b.style?.rotate ? { rot: b.style.rotate } : {}) })
+        })
+        if (firstTime && planning.panelEnabled && m.panel) {
+          const panel = createBlock('shape')
+          const custom = planning.style === 'custom'
+          panel.style = {
+            variant: planning.style || 'minimal', shape: planning.panelShape === 'custom' ? 'custom' : legacyShape[planning.panelShape] || planning.panelShape || 'rounded', radius: planning.panelRadius, padding: 0,
+            ...(planning.panelShadow && planning.panelShadow !== 'theme' ? { shadow: planning.panelShadow } : {}),
+            ...(planning.panelBorderWidth !== 1 || planning.panelBorderStyle !== 'solid' ? { borderWidth: planning.panelBorderWidth, borderStyle: planning.panelBorderStyle } : {}),
+            ...(custom ? { bg: planning.panelColor, bgOpacity: planning.panelOpacity } : {}),
+          }
+          panel.frame = { desktop: { x: Math.round(m.panel.x), y: Math.round(m.panel.y + dy), w: Math.round(m.panel.w), h: Math.round(m.panel.h) } }
+          const panelColor = variants[planning.style]?.css?.color
+          blocks = [panel, ...blocks.map(b => (panelColor && b.type !== 'shape' && !b.style?.color ? { ...b, style: { ...b.style, color: panelColor } } : b))]
+        }
+        canvas = { ...canvas, desktop: { ...canvas.desktop, minHeight: Math.max(canvas.desktop.minHeight || 0, Math.ceil(m.height + dy + 80)) } }
+      }
+      setDraftStored(false)
+      commit(p => ({ ...p, layoutMode: 'canvas', blocks, canvas }))
+      setSelection([]); setDevice('desktop')
+    } catch (err) {
+      console.error(err)
+      setError('Não consegui converter automaticamente. Tente de novo ou use “Organizar em linhas”.')
+    } finally { setBusy('') }
+  }
+  const switchToGrid = () => { setDraftStored(false); commit(p => ({ ...p, layoutMode: 'grid' })); setSelection([]) }
+
+  // Gera posições próprias para o celular, a partir de como a coluna única aparece hoje.
+  const customizeMobile = async () => {
+    if (busy) return
+    setBusy('Preparando o layout do celular…'); setError('')
+    try {
+      const mobileWidth = Number(planning.canvas.mobile.width) || DESIGN.mobile.width
+      const m = await measureLayout({ ...planning, layoutMode: 'canvas', canvas: { ...planning.canvas, mobile: { ...planning.canvas.mobile, custom: false } } }, mobileWidth)
+      const blocks = planning.blocks.map(b => {
+        const r = m.frames[b.id]
+        if (!r) return b
+        const fixed = ['image', 'shape', 'spacer'].includes(b.type)
+        return withFrame(b, 'mobile', { x: Math.round(r.x), y: Math.round(r.y + 24), w: Math.round(r.w), ...(fixed ? { h: Math.round(r.h) } : {}) })
+      })
+      setDraftStored(false)
+      commit(p => ({ ...p, blocks, canvas: { ...p.canvas, mobile: { ...p.canvas.mobile, custom: true } } }))
+    } catch (err) { console.error(err); setError('Não consegui preparar o layout do celular.') } finally { setBusy('') }
+  }
+  const setMobileCustom = enabled => { if (enabled) customizeMobile(); else { setDraftStored(false); commit(p => ({ ...p, canvas: { ...p.canvas, mobile: { ...p.canvas.mobile, custom: false } } })); setDevice('desktop') } }
+  const arrangeAll = () => { setDraftStored(false); commit(p => ({ ...p, blocks: autoArrange(p.blocks, Number(p.canvas?.desktop?.width) || DESIGN.desktop.width) })) }
+  const fitHeight = () => {
+    const el = canvasApiRef.current?.stage()?.querySelector('[data-canvas-page]')
+    const bottom = el ? [...el.querySelectorAll('[data-canvas-block]')].reduce((max, b) => Math.max(max, b.offsetTop + b.offsetHeight), 0) : contentBottom(planning.blocks, 'desktop')
+    setDraftStored(false)
+    commit(p => ({ ...p, canvas: { ...p.canvas, desktop: { ...p.canvas.desktop, minHeight: Math.max(400, Math.ceil(bottom + 60)) } } }))
+  }
+  const insertBlock = (type, index) => (canvasMode ? api.insertAt(type, null, device) : api.insert(type, index))
 
   const editText = useCallback(slot => {
     const el = typeof slot === 'string' ? document.querySelector(`[data-block-id="${CSS.escape(slot)}"]`) : slot
@@ -139,7 +277,8 @@ function Admin() {
   }, [])
 
   const { drag, indicator, resizing, startDrag, startResize, startBody, startRotate, startHeight } = useBuilderDrag({
-    surfaceRef, blocks: planning?.blocks ?? [], selectedId, onMove: api.move, onInsert: api.insert, onResize: api.setSpan,
+    surfaceRef, canvasApiRef: canvasMode ? canvasApiRef : null, blocks: planning?.blocks ?? [], selectedId, onMove: api.move, onInsert: insertBlock,
+    onInsertAt: (type, point) => api.insertAt(type, point, device), onResize: api.setSpan,
     onStyle: api.setStyle, onSelect: setSelectedId, onEditAt: (slot, x, y) => { if (!focusInlineAt(slot, x, y)) slot.focus() },
   })
 
@@ -169,17 +308,32 @@ function Admin() {
   useEffect(() => {
     const onKey = event => {
       const mod = event.ctrlKey || event.metaKey
+      // canvas livre: setas, Delete e Esc agem nos blocos selecionados (quando não há campo em foco)
+      if (!mod && canvasMode && selection.length && !isTyping(event.target) && !['SELECT', 'BUTTON'].includes(event.target.tagName)) {
+        const step = event.shiftKey ? 10 : 1
+        const arrows = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }
+        if (arrows[event.key]) {
+          event.preventDefault()
+          const rects = ensureFrames(planning.blocks, device, Number(planning.canvas[device].width) || DESIGN[device].width)
+          api.setFrames(Object.fromEntries(rects.filter(b => selection.includes(b.id)).map(b => [b.id, { x: b.frame[device].x + arrows[event.key][0], y: b.frame[device].y + arrows[event.key][1] }])), device, 'nudge')
+          return
+        }
+        if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); api.removeMany(selection); return }
+        if (event.key === 'Escape') { setSelection([]); return }
+      }
       if (!mod) return
       const key = event.key.toLowerCase()
       if (key === 's') { event.preventDefault(); saveRef.current() }
       else if (isTyping(event.target)) return
       else if (key === 'z') { event.preventDefault(); event.shiftKey ? history.redo() : history.undo() }
       else if (key === 'y') { event.preventDefault(); history.redo() }
+      else if (key === 'd' && canvasMode && selection.length) { event.preventDefault(); api.duplicateMany(selection) }
       else if (key === 'd' && selectedId) { event.preventDefault(); api.duplicate(selectedId) }
+      else if (key === 'a' && canvasMode) { event.preventDefault(); setSelection(planning.blocks.map(b => b.id)) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [history, selectedId, api])
+  }, [history, selectedId, selection, api, canvasMode, planning, device])
 
   const leave = destination => { if (!dirty || window.confirm('Você tem alterações não publicadas. Sair do editor?')) navigate(destination) }
   const testAsUser = () => {
@@ -224,9 +378,9 @@ function Admin() {
         <button type="button" onClick={() => { commit(normalizePlanning(draft)); setDraft(null) }}>Recuperar rascunho</button>
         <button type="button" onClick={() => { localStorage.removeItem(draftKey); setDraft(null) }}>Descartar</button></div>}
     </div>
-    {planning && <div className="builder">
+    {planning && <div className={`builder ${hidden.library ? 'hide-library' : ''} ${hidden.inspector ? 'hide-inspector' : ''}`}>
       <aside className="builder-library" aria-label="Biblioteca de blocos">
-        <Library blocks={planning.blocks} selectedId={selectedId} onSelect={setSelectedId} onInsert={api.insert} onMoveBy={api.moveBy} onTemplate={applyTemplate}
+        <Library blocks={planning.blocks} selectedId={selectedId} onSelect={setSelectedId} onInsert={insertBlock} onMoveBy={canvasMode ? (id, delta) => api.zOrder([id], delta < 0 ? 'backward' : 'forward') : api.moveBy} onTemplate={applyTemplate}
           onPaletteDown={(event, type) => startDrag(event, { kind: 'new', type, label: blockLabels[type] })} />
       </aside>
       <section className="builder-stage" aria-label="Palco">
@@ -236,29 +390,50 @@ function Admin() {
             <button type="button" aria-label="Refazer" title="Refazer (Ctrl+Shift+Z)" disabled={!history.canRedo} onClick={history.redo}><Redo2 size={16} /></button>
             <button type="button" className={!selected ? 'active' : ''} onClick={() => setSelectedId(null)}><Settings2 size={15} />Página</button>
             <button type="button" onClick={replay}><WandSparkles size={15} />Reproduzir animações</button>
+            <div className="mode-switch" role="group" aria-label="Modo de edição">
+              <button type="button" aria-pressed={!canvasMode} onClick={switchToGrid}>Grade</button>
+              <button type="button" aria-pressed={canvasMode} disabled={Boolean(busy)} onClick={canvasMode ? undefined : switchToCanvas}>Canvas livre</button>
+            </div>
           </div>
           <div className="stage-tools">
             <div className="device-switch">
               <button type="button" aria-label="Palco em tamanho de computador" aria-pressed={device === 'desktop'} className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')}><Monitor size={16} /></button>
               <button type="button" aria-label="Palco em tamanho de celular" aria-pressed={device === 'mobile'} className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')}><Smartphone size={16} /></button>
             </div>
+            <button type="button" aria-pressed={!hidden.library} onClick={() => setHidden(h => ({ ...h, library: !h.library }))}><PanelLeft size={15} />Blocos</button>
+            <button type="button" aria-pressed={!hidden.inspector} onClick={() => setHidden(h => ({ ...h, inspector: !h.inspector }))}><PanelRight size={15} />Propriedades</button>
             <button type="button" onClick={() => setPreviewMode('page')}><Maximize2 size={15} />Tela cheia</button>
           </div>
         </div>
-        <div className={`stage-surface ${device} ${drag ? 'is-dragging' : ''} ${resizing ? 'is-resizing' : ''}`} ref={surfaceRef}>
-          <PlanningCanvas key={replayKey} planning={planning} editing={editing} ignorePast />
-        </div>
-        <p className="stage-help">Clique num bloco para selecionar e de novo no texto para digitar · arraste o bloco para posicioná-lo livremente · alça superior: trocar a ordem · borda direita: largura · círculo: girar · setas movem, Alt + setas reordenam.</p>
+        {busy && <p className="canvas-banner" role="status">{busy}</p>}
+        {!canvasMode && !busy && <div className="canvas-banner">
+          <span><strong>Novo: canvas livre.</strong> Posicione, redimensione e gire qualquer bloco como no Canva, com o resultado grande na tela. Sua call é convertida sem mudar a aparência — dá para voltar à grade quando quiser.</span>
+          <button type="button" className="secondary-button" onClick={switchToCanvas}>Usar canvas livre</button>
+        </div>}
+        {canvasMode && device === 'mobile' && !planning.canvas.mobile.custom && <div className="canvas-banner">
+          <span>No celular, os blocos aparecem em coluna, na ordem em que estão no computador. Quer posicionar cada um à mão?</span>
+          <button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={customizeMobile}>Personalizar o celular</button>
+        </div>}
+        {canvasMode && !(device === 'mobile' && !planning.canvas.mobile.custom)
+          ? <CanvasEditor key={`${replayKey}:${device}`} planning={planning} device={device} selection={selection} setSelection={setSelection} api={api} animate={animate} canvasApiRef={canvasApiRef} onGesture={{ editAt: (id, x, y) => { const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`); if (el) focusInlineAt(el, x, y) } }} />
+          : <div className={`stage-surface ${device} ${drag ? 'is-dragging' : ''} ${resizing ? 'is-resizing' : ''}`} ref={surfaceRef}>
+            <PlanningCanvas key={replayKey} planning={planning} editing={canvasMode ? null : editing} ignorePast />
+          </div>}
+        <p className="stage-help">{canvasMode
+          ? 'Clique para selecionar (Shift soma) · arraste para mover · alças nos cantos e lados redimensionam · bolinha de cima gira · clique de novo ou duplo clique no texto para digitar · setas empurram 1 px (Shift 10) · Alt solta o ímã · Ctrl + roda dá zoom.'
+          : 'Clique num bloco para selecionar e de novo no texto para digitar · arraste o bloco para posicioná-lo livremente · alça superior: trocar a ordem · borda direita: largura · círculo: girar · setas movem, Alt + setas reordenam.'}</p>
       </section>
       <aside className="builder-inspector" aria-label="Propriedades">
-        {selected
-          ? <BlockInspector block={selected} api={api} pageEnabled={planning.animationEnabled} onError={setError} callKey={planning.eventId || 'main'} />
-          : <PageInspector planning={planning} set={setPage} patch={patchPage} onError={setError} onReplay={replay} onSplash={() => setPreviewMode('splash')} />}
+        {selection.length > 1
+          ? <MultiInspector blocks={planning.blocks} selection={selection} api={api} onSelect={setSelectedId} />
+          : selected
+            ? <BlockInspector block={selected} api={api} pageEnabled={planning.animationEnabled} onError={setError} callKey={planning.eventId || 'main'} canvas={canvasMode ? device : null} />
+            : <PageInspector planning={planning} set={setPage} patch={patchPage} onError={setError} onReplay={replay} onSplash={() => setPreviewMode('splash')} canvasActions={{ arrange: arrangeAll, fitHeight, setMobileCustom, toGrid: switchToGrid }} />}
       </aside>
     </div>}
-    {selected && !drag && <QuickBar key={selected.id} block={selected} api={api} onEditText={editText} />}
+    {selected && !drag && <QuickBar key={selected.id} block={selected} api={api} onEditText={editText} canvas={canvasMode} />}
     {drag && <div className="drag-ghost" style={{ left: drag.x, top: drag.y }}>{drag.label}</div>}
-    {indicator && <div className="drop-indicator" style={indicator} />}
+    {indicator && (indicator.ghost ? <div className="drop-ghost" style={{ left: indicator.left, top: indicator.top, width: indicator.width, height: indicator.height }} /> : <div className="drop-indicator" style={indicator} />)}
     {previewMode && planning && <CallPreview planning={planning} splash={previewMode === 'splash'} onClose={() => setPreviewMode(null)} />}
   </main>
 }

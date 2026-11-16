@@ -3,7 +3,7 @@ import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Copy, Plus, Tra
 import { newId } from '../data/blocks'
 import { effectOptions, entranceOptions, fontOptions, hoverOptions, loopOptions, shadowOptions, textEffectOptions, variantOptions } from '../data/visuals'
 import { uploadImage } from '../data/media'
-import { ColorField, Field, IconPicker, Range, SelectField, Section, Segmented, ShapePicker, TextArea, TextField, Toggle } from './fields'
+import { ColorField, Field, IconPicker, NumberField, Range, SelectField, Section, Segmented, ShapePicker, TextArea, TextField, Toggle } from './fields'
 import { blockLabels } from './blockMeta'
 import ResponsesPanel from './ResponsesPanel'
 
@@ -149,12 +149,32 @@ function ContentTab({ block, set, onError }) {
   }
 }
 
-function StyleTab({ block, style, setSpan }) {
+function FrameSection({ block, device, api }) {
+  const f = block.frame?.[device] || { x: 0, y: 0, w: 400 }
+  const set = patch => api.setFrames({ [block.id]: patch }, device, 'inspector')
+  return <Section title="Posição e tamanho" open>
+    <p className="section-help">Arraste o bloco no canvas; aqui você acerta os números. As medidas são da prancheta ({device === 'mobile' ? 'celular' : 'computador'}).</p>
+    <div className="field-grid">
+      <NumberField label="X (esquerda)" value={f.x} onChange={x => set({ x: x ?? 0 })} />
+      <NumberField label="Y (topo)" value={f.y} onChange={y => set({ y: y ?? 0 })} />
+      <NumberField label="Largura" value={f.w} min={24} onChange={w => set({ w: Math.max(24, w ?? 24) })} />
+      <NumberField label="Altura" value={f.h} min={24} placeholder="auto" onChange={h => set({ h: h === undefined ? undefined : Math.max(24, h) })} />
+    </div>
+    <Range label="Giro" value={f.rot ?? 0} min={-180} max={180} step={1} unit="°" onChange={rot => set({ rot })} />
+    <div className="field-grid">
+      <button type="button" className="secondary-button" onClick={() => api.zOrder([block.id], 'front')}>Trazer p/ frente</button>
+      <button type="button" className="secondary-button" onClick={() => api.zOrder([block.id], 'back')}>Enviar p/ trás</button>
+    </div>
+    <button type="button" className="secondary-button" onClick={() => set({ h: undefined, rot: 0 })}>Altura automática e sem giro</button>
+  </Section>
+}
+
+function StyleTab({ block, style, setSpan, canvas, api }) {
   const s = block.style || {}
   const framed = (s.variant || 'none') !== 'none'
   const shapeMasked = ['heart', 'star', 'cloud', 'diamond', 'hexagon'].includes(s.shape)
   return <>
-    <Section title="Posição e tamanho" open>
+    {canvas ? <FrameSection block={block} device={canvas} api={api} /> : <Section title="Posição e tamanho" open>
       <p className="section-help">Arraste o bloco no palco para posicioná-lo; aqui você ajusta com precisão.</p>
       <Range label="Largura (colunas de 12)" value={block.span} min={1} max={12} onChange={setSpan} />
       <Range label="Largura máxima" auto value={s.maxWidth} fallback={600} min={80} max={1200} step={10} unit=" px" onChange={maxWidth => style({ maxWidth })} />
@@ -168,7 +188,8 @@ function StyleTab({ block, style, setSpan }) {
       <Range label="Camada (frente / trás)" value={s.layer ?? 0} min={-5} max={5} onChange={layer => style({ layer })} />
       <button type="button" className="secondary-button" onClick={() => style({ offsetX: 0, offsetY: 0, rotate: 0, layer: 0, minHeight: undefined, maxWidth: undefined })}>Voltar à posição original</button>
       <Range label="Transparência" value={s.opacity ?? 1} min={0.1} max={1} step={0.05} onChange={opacity => style({ opacity })} />
-    </Section>
+    </Section>}
+    {canvas && <Range label="Transparência" value={s.opacity ?? 1} min={0.1} max={1} step={0.05} onChange={opacity => style({ opacity })} />}
     <Section title="Formato e moldura" open>
       <ShapePicker value={s.shape} onChange={shape => style({ shape })} />
       {shapeMasked && <p className="section-help">Este formato recorta a moldura inteira, então a borda não aparece; o texto se ajusta dentro dele.</p>}
@@ -221,7 +242,7 @@ function MotionTab({ block, style, pageEnabled }) {
   </>
 }
 
-export default function BlockInspector({ block, api, pageEnabled, onError, callKey }) {
+export default function BlockInspector({ block, api, pageEnabled, onError, callKey, canvas = null }) {
   const [tab, setTab] = useState('content')
   const set = patch => api.setProps(block.id, patch)
   const style = patch => api.setStyle(block.id, patch)
@@ -235,7 +256,7 @@ export default function BlockInspector({ block, api, pageEnabled, onError, callK
         <ContentTab block={block} set={set} onError={onError} />
         {['rsvp', 'poll', 'question', 'checklist', 'quiz'].includes(block.type) && <ResponsesPanel block={block} callKey={callKey} />}
       </>}
-      {tab === 'style' && <StyleTab block={block} style={style} setSpan={span => api.setSpan(block.id, span)} />}
+      {tab === 'style' && <StyleTab block={block} style={style} setSpan={span => api.setSpan(block.id, span)} canvas={canvas} api={api} />}
       {tab === 'motion' && <MotionTab block={block} style={style} pageEnabled={pageEnabled} />}
     </div>
     <div className="inspector-footer">

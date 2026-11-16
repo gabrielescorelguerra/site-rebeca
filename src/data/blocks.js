@@ -1,6 +1,8 @@
 // Modelo de blocos — funções puras (sem React/Supabase) para poder testar.
+import { ensureFrames } from './canvasLayout.js'
+
 export const INTERACTIVE_TYPES = ['rsvp', 'poll', 'question', 'checklist', 'reveal', 'quiz', 'surprise']
-export const BLOCK_TYPES = ['heading', 'text', 'date', 'countdown', 'activities', 'links', 'button', 'calendar', 'note', 'image', 'icon', 'divider', 'spacer', ...INTERACTIVE_TYPES]
+export const BLOCK_TYPES = ['heading', 'text', 'date', 'countdown', 'activities', 'links', 'button', 'calendar', 'note', 'image', 'icon', 'divider', 'spacer', 'shape', ...INTERACTIVE_TYPES]
 
 const opts = (...labels) => labels.map(label => ({ id: newId(), label }))
 
@@ -32,6 +34,7 @@ const TYPE_DEFAULTS = {
   icon: () => ({ span: 3, props: { icon: 'heart', size: 56 }, style: { align: 'center', color: undefined } }),
   divider: () => ({ span: 12, props: { look: 'line' }, style: { opacity: 0.6 } }),
   spacer: () => ({ span: 12, props: { height: 40 }, style: {} }),
+  shape: () => ({ span: 6, props: {}, style: { variant: 'tint', shape: 'rounded', padding: 0 } }),
   rsvp: () => ({ span: 12, props: { question: 'Você vem?', options: opts('Sim, claro 💗', 'Talvez', 'Não consigo dessa vez'), thanks: 'Anotado! Obrigado por responder.' }, style: { variant: 'tint', padding: 24 } }),
   poll: () => ({ span: 12, props: { question: 'O que vamos jogar?', multiple: false, options: opts('Minecraft', 'Algo calminho', 'Surpresa'), thanks: 'Voto anotado!' }, style: { variant: 'tint', padding: 24 } }),
   question: () => ({ span: 12, props: { prompt: 'Me conta: como foi o seu dia?', placeholder: 'Escreva aqui…', button: 'Enviar', thanks: 'Recebi, obrigado por contar ♡' }, style: { variant: 'tint', padding: 24 } }),
@@ -52,6 +55,7 @@ export function createBlock(type) {
 export function cloneBlock(block) {
   const copy = structuredClone(block)
   copy.id = newId()
+  for (const frame of Object.values(copy.frame || {})) { frame.x += 24; frame.y += 24 }
   const remap = {}
   for (const key of ['items', 'options']) {
     if (Array.isArray(copy.props?.[key])) copy.props[key] = copy.props[key].map(item => { const id = newId(); remap[item.id] = id; return { ...item, id } })
@@ -109,6 +113,7 @@ const pageDefaults = {
   backgroundPattern: 'none', backgroundPatternOpacity: 1,
   backgroundImage: '', backgroundImageOpacity: 0.28, backgroundImagePosition: 'center', backgroundImageBlur: 0, backgroundMotion: 'none',
   backgroundIconEnabled: false, backgroundIcon: 'blocks', backgroundIconColor: '#bd7184', backgroundIconSize: 28, backgroundIconOpacity: 0.18, backgroundIconSpacing: 72, backgroundIconRotation: 0,
+  layoutMode: 'grid', canvas: { desktop: { width: 1200, minHeight: 900 }, mobile: { width: 390, minHeight: 760, custom: false } },
   panelEnabled: true, style: 'minimal', panelShape: 'rounded', panelRadius: 32, panelBorderWidth: 1, panelBorderStyle: 'solid', panelShadow: 'soft', panelPadding: 56, panelColor: '#ffffff', panelOpacity: 0.75,
   animationEnabled: true, animationSpeed: 'normal', animationIntensity: 'medium', animationPreset: 'soft',
   panelEntrance: 'rise', panelLoop: 'none', hoverAnimation: 'none', glowAnimation: 'none', animationDelay: 0,
@@ -148,5 +153,10 @@ export function normalizePlanning(raw) {
     merged.baseFontSize = legacyBaseSize(raw)
     if (raw.panelWidth === undefined) merged.panelWidth = 1024
   }
-  return { ...merged, blocks }
+  const canvas = {
+    desktop: { ...defaults.canvas.desktop, ...raw.canvas?.desktop },
+    mobile: { ...defaults.canvas.mobile, ...raw.canvas?.mobile },
+  }
+  if (merged.layoutMode === 'canvas') blocks = ensureFrames(blocks, 'desktop', canvas.desktop.width)
+  return { ...merged, canvas, blocks }
 }

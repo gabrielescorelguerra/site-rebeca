@@ -4,13 +4,10 @@ import IconByKey from './IconByKey'
 import InteractiveContent from './Interactive'
 import Inline from './Inline'
 import { INTERACTIVE_TYPES } from '../data/blocks'
-import { hoverOptions } from '../data/visuals'
-import { EditingContext, boxStyle, entranceStyle, loopStyle, moverStyle } from './blockStyle'
+import { EditingContext, blockVisual, moverStyle } from './blockStyle'
 import { validLink } from '../utils/url'
 import { downloadCalendar } from '../utils/calendar'
 import { blockLabels } from '../editor/blockMeta'
-
-const hoverKeys = new Set(hoverOptions.map(([key]) => key))
 
 function formatDate(value, format) {
   const date = new Date(value)
@@ -113,6 +110,8 @@ export function BlockContent({ block, planning, editing }) {
       return <div className={`b-divider look-${p.look || 'line'}`} role="separator">{p.look === 'hearts' && <><Heart size={12} fill="currentColor" /><Heart size={16} fill="currentColor" /><Heart size={12} fill="currentColor" /></>}</div>
     case 'spacer':
       return <div style={{ height: p.height || 40 }} aria-hidden="true" />
+    case 'shape':
+      return <div className="b-shape" aria-hidden="true" />
     default:
       return INTERACTIVE_TYPES.includes(block.type) ? <InteractiveContent block={block} /> : null
   }
@@ -121,22 +120,16 @@ export function BlockContent({ block, planning, editing }) {
 export function BlockSlot({ block, index, planning }) {
   const editing = useContext(EditingContext)
   const s = block.style || {}
-  const animated = planning.animationEnabled && (!editing || editing.animate)
-  const entrance = s.entrance && s.entrance !== 'inherit' ? s.entrance : planning.blockEntrance
-  const hover = animated && hoverKeys.has(s.hover) && s.hover !== 'none' ? `hv-${s.hover}` : ''
-  const delay = (Number(s.delay) || 0) + index * (Number(planning.blockStagger) || 0) + (Number(planning.animationDelay) || 0)
-  const { style: boxCss, masked, align } = boxStyle(block, planning)
-  const frameStyle = { ...boxCss, ...(animated && entrance !== 'none' ? entranceStyle(planning, entrance, delay) : {}) }
+  const { frameStyle, frameClass, masked, align, loop } = blockVisual(block, index, planning, editing)
   const moverCss = moverStyle(block, planning, masked)
   const selected = editing?.selectedId === block.id
-  const frameClass = `block-frame ${hover} ${s.size ? 'has-fs' : ''} ${s.textGradient && s.color2 ? 'has-tg' : ''}`
   const slotStyle = { '--span': block.span, ...(s.layer ? { zIndex: s.layer + 10 } : {}) }
   const content = <BlockContent block={block} planning={planning} editing={Boolean(editing)} />
 
   if (!editing) {
-    return <div className="block-slot" style={slotStyle}>
+    return <div className="block-slot" style={slotStyle} data-block-id={block.id}>
       <div className="block-mover" style={moverCss}>
-        <div style={animated ? loopStyle(s.loop) : undefined}>
+        <div style={loop}>
           <div className={frameClass} style={frameStyle} data-align={align}>{content}</div>
         </div>
       </div>
@@ -171,7 +164,7 @@ export function BlockSlot({ block, index, planning }) {
     onKeyDown={onKeyDown}
   >
     <div className="block-mover" data-mover style={moverCss}>
-      <div style={animated ? loopStyle(s.loop) : undefined}>
+      <div style={loop}>
         <div className={frameClass} style={frameStyle} data-align={align}>{content}</div>
       </div>
       <button type="button" className="block-handle" aria-label={`Reordenar ${blockLabels[block.type] || 'bloco'} entre os outros`} title="Arraste para trocar a ordem" onPointerDown={event => editing.onHandleDown(event, block.id)} onClick={event => event.stopPropagation()}>

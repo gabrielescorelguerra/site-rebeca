@@ -5,7 +5,7 @@ import { shapeOptions, variantOptions } from '../data/visuals'
 const widths = [[3, '¼'], [4, '⅓'], [6, '½'], [8, '⅔'], [9, '¾'], [12, 'Total']]
 
 // Barra flutuante ao lado do bloco selecionado: os ajustes mais usados ficam a um clique.
-export default function QuickBar({ block, api, onEditText }) {
+export default function QuickBar({ block, api, onEditText, canvas = false }) {
   const ref = useRef(null)
   const s = block.style || {}
 
@@ -63,16 +63,16 @@ export default function QuickBar({ block, api, onEditText }) {
         <select value={s.variant || 'none'} onChange={event => style({ variant: event.target.value })}>{variantOptions.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
       <label className="qb-select"><span>Formato</span>
         <select value={s.shape || 'rounded'} onChange={event => style({ shape: event.target.value })}>{shapeOptions.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
-      <label className="qb-select"><span>Largura</span>
+      {!canvas && <label className="qb-select"><span>Largura</span>
         <select value={widths.some(([n]) => n === block.span) ? block.span : ''} onChange={event => api.setSpan(block.id, Number(event.target.value))}>
           {!widths.some(([n]) => n === block.span) && <option value="">{block.span}/12</option>}
-          {widths.map(([n, text]) => <option key={n} value={n}>{text}</option>)}</select></label>
+          {widths.map(([n, text]) => <option key={n} value={n}>{text}</option>)}</select></label>}
     </div>
     <div className="qb-group">
       <button type="button" aria-label="Editar o texto" title="Editar o texto (Enter)" onClick={() => onEditText(block.id)}><Pencil size={14} /></button>
-      {moved ? <button type="button" aria-label="Zerar posição e giro" title="Zerar posição e giro" onClick={() => style({ offsetX: 0, offsetY: 0, rotate: 0 })}><RotateCcw size={14} /></button> : null}
-      <button type="button" aria-label="Mover para antes" title="Mover para antes" onClick={() => api.moveBy(block.id, -1)}><ArrowUp size={14} /></button>
-      <button type="button" aria-label="Mover para depois" title="Mover para depois" onClick={() => api.moveBy(block.id, 1)}><ArrowDown size={14} /></button>
+      {!canvas && moved ? <button type="button" aria-label="Zerar posição e giro" title="Zerar posição e giro" onClick={() => style({ offsetX: 0, offsetY: 0, rotate: 0 })}><RotateCcw size={14} /></button> : null}
+      <button type="button" aria-label={canvas ? 'Avançar uma camada' : 'Mover para antes'} title={canvas ? 'Avançar uma camada' : 'Mover para antes'} onClick={() => (canvas ? api.zOrder([block.id], 'forward') : api.moveBy(block.id, -1))}><ArrowUp size={14} /></button>
+      <button type="button" aria-label={canvas ? 'Recuar uma camada' : 'Mover para depois'} title={canvas ? 'Recuar uma camada' : 'Mover para depois'} onClick={() => (canvas ? api.zOrder([block.id], 'backward') : api.moveBy(block.id, 1))}><ArrowDown size={14} /></button>
       <button type="button" aria-label="Duplicar bloco" title="Duplicar (Ctrl+D)" onClick={() => api.duplicate(block.id)}><Copy size={14} /></button>
       <button type="button" className="danger" aria-label="Excluir bloco" title="Excluir (Delete)" onClick={() => api.remove(block.id)}><Trash2 size={14} /></button>
     </div>
