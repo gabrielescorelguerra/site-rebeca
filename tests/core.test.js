@@ -202,3 +202,23 @@ test('canvas: registro com layoutMode canvas ganha quadros ao normalizar', () =>
   assert.equal(result.canvas.mobile.custom, false)
   assert.equal(normalizePlanning({}).layoutMode, 'grid')
 })
+
+import { IDEAS, badges, pickIdea, progress, roulettePool, tiltOf } from '../src/data/bucketIdeas.js'
+
+test('lista: sorteio evita ideias já usadas e filtra a roleta', () => {
+  const used = IDEAS.slice(1).map(idea => ({ title: idea.text.toUpperCase() }))
+  assert.equal(pickIdea(used, null, () => 0).id, 0)
+  assert.equal(pickIdea(used, 0, () => 0), null)
+  const items = [{ done: false, level: 2, category: 'comida' }, { done: false, level: 5, category: 'comida' }, { done: true, level: 1, category: 'comida' }, { done: false, level: 1, category: 'jogo' }]
+  assert.equal(roulettePool(items, { maxLevel: 3 }).length, 2)
+  assert.equal(roulettePool(items, { maxLevel: 5, category: 'comida' }).length, 2)
+})
+
+test('lista: progresso, conquistas e inclinação estável', () => {
+  assert.deepEqual(progress([]), { done: 0, total: 0, percent: 0 })
+  const items = [{ done: true, level: 5, category: 'bobagem', photos: [] }, { done: false, level: 1, category: 'sonho', photos: [] }]
+  assert.deepEqual(progress(items), { done: 1, total: 2, percent: 50 })
+  const earned = Object.fromEntries(badges(items).map(b => [b.key, b.earned]))
+  assert.equal(earned.first, true); assert.equal(earned.brave, true); assert.equal(earned.five, false)
+  assert.equal(tiltOf('abc'), tiltOf('abc')); assert.ok(Math.abs(tiltOf('xyz')) <= 1.8)
+})

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight, Heart, LogOut, Plus, Save, Trash2 } from 'lucide-react'
 import { logout, useAccess } from './lib/access'
+import BucketList from './components/BucketList'
 import { loadLinks, saveLinks, validLink } from './data/relationshipLinks'
 
-export default function Links() {
-  const { admin, authenticated } = useAccess()
+function LinksPanel({ admin, authenticated, onDirty }) {
   const [links, setLinks] = useState([])
   const [baseline, setBaseline] = useState(null)
   const [status, setStatus] = useState('loading')
@@ -23,6 +23,8 @@ export default function Links() {
     }).catch(() => { if (active) { setError('Não foi possível carregar nossos links. Tente novamente.'); setStatus('error') } })
     return () => { active = false }
   }, [authenticated, attempt])
+
+  useEffect(() => { onDirty(dirty) }, [dirty, onDirty])
 
   useEffect(() => {
     if (!dirty) return
@@ -46,10 +48,7 @@ export default function Links() {
     }
   }
 
-  if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/links' }} replace />
-  return <main className="site-shell links-shell">
-    <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (dirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
-    <section className="links-content page-transition" aria-labelledby="links-title">
+  return <section className="links-content page-transition" aria-labelledby="links-title">
 
       <h1 id="links-title">Nossos links<span>.</span></h1>
       <p className="links-intro">Os links que a gente quer guardar.</p>
@@ -69,6 +68,22 @@ export default function Links() {
         </fieldset>
       </form> : <div className="links-grid">{links.length ? links.map(item => validLink(item.url) && <a className="relationship-card" key={item.id} href={item.url} target="_blank" rel="noopener noreferrer"><Heart size={20} aria-hidden="true" /><h2>{item.title}</h2>{item.description && <p>{item.description}</p>}<span>Abrir link <ArrowUpRight size={17} aria-hidden="true" /><span className="sr-only"> em uma nova aba</span></span></a>) : <div className="links-empty"><Heart aria-hidden="true" /><h2>Ainda não temos links aqui.</h2></div>}</div>)}
 
-    </section>
+  </section>
+}
+
+export default function Links() {
+  const { admin, authenticated, testing } = useAccess()
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('aba') === 'lista' ? 'lista' : 'links'
+  const [linksDirty, setLinksDirty] = useState(false)
+  const role = admin ? 'admin' : testing ? 'test' : 'user'
+  if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/links' }} replace />
+  return <main className="site-shell links-shell">
+    <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (linksDirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
+    <div className="links-tabs" role="tablist" aria-label="Seções">
+      {[['links', 'Nossos links'], ['lista', 'Nossa lista']].map(([key, label]) => <button key={key} id={`tab-${key}`} role="tab" type="button" aria-selected={tab === key} aria-controls={`panel-${key}`} onClick={() => setParams(key === 'lista' ? { aba: 'lista' } : {}, { replace: true })}>{label}</button>)}
+    </div>
+    <div id="panel-links" role="tabpanel" aria-labelledby="tab-links" hidden={tab !== 'links'}><LinksPanel admin={admin} authenticated={authenticated} onDirty={setLinksDirty} /></div>
+    <div id="panel-lista" role="tabpanel" aria-labelledby="tab-lista" hidden={tab !== 'lista'}>{tab === 'lista' && <BucketList role={role} />}</div>
   </main>
 }

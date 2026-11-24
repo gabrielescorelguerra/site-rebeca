@@ -63,3 +63,26 @@ create policy "public can read responses" on public.call_responses for select to
 create policy "public can insert responses" on public.call_responses for insert to anon, authenticated with check (true);
 create policy "public can update responses" on public.call_responses for update to anon, authenticated using (true) with check (true);
 create policy "public can delete responses" on public.call_responses for delete to anon, authenticated using (true);
+
+-- Nossa lista (bucket list do casal). Uma linha por ideia, para duas pessoas editarem sem conflito.
+-- Escrita pública como no resto do projeto (a autenticação atual é demonstrativa).
+create table if not exists public.bucket_items (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 1 and 140),
+  note text not null default '' check (char_length(note) <= 600),
+  category text not null default 'bobagem' check (category in ('sonho', 'bobagem', 'comida', 'lugar', 'romantico', 'jogo')),
+  level smallint not null default 2 check (level between 1 and 5),
+  author text not null check (author in ('admin', 'user')),
+  done boolean not null default false,
+  done_at timestamptz,
+  memory text not null default '' check (char_length(memory) <= 1000),
+  photos jsonb not null default '[]'::jsonb check (jsonb_typeof(photos) = 'array' and jsonb_array_length(photos) <= 4),
+  created_at timestamptz not null default now()
+);
+
+alter table public.bucket_items enable row level security;
+
+create policy "public can read bucket" on public.bucket_items for select to anon, authenticated using (true);
+create policy "public can insert bucket" on public.bucket_items for insert to anon, authenticated with check (true);
+create policy "public can update bucket" on public.bucket_items for update to anon, authenticated using (true) with check (true);
+create policy "public can delete bucket" on public.bucket_items for delete to anon, authenticated using (true);
