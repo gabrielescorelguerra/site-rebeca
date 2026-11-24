@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Eye, Heart, Maximize2, Monitor, PanelLeft, PanelRight, Redo2, Save, Settings2, Smartphone, Undo2, WandSparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { loadPlanningRecord, savePlanning } from './data/planning'
+import { toCard, updateLibrary } from './data/callLibrary'
 import { cloneBlock, createBlock, newId, normalizePlanning } from './data/blocks'
 import { DESIGN, autoArrange, contentBottom, ensureFrames, sizeFor, withFrame } from './data/canvasLayout'
 import { legacyShape, variants } from './data/visuals'
@@ -74,6 +75,7 @@ function Admin() {
   const [previewMode, setPreviewMode] = useState(null)
   const [draft, setDraft] = useState(null)
   const [draftStored, setDraftStored] = useState(false)
+  const [notice, setNotice] = useState('')
   const surfaceRef = useRef(null)
   const saveTimer = useRef(null)
   const replayTimer = useRef(null)
@@ -335,6 +337,42 @@ function Admin() {
     return () => window.removeEventListener('keydown', onKey)
   }, [history, selectedId, selection, api, canvasMode, planning, device])
 
+  /* ---------- cards guardados ---------- */
+  const planningRef = useRef(null)
+  useEffect(() => { planningRef.current = planning })
+
+  const openCard = (loaded, card) => {
+    if (dirty && !window.confirm('Abrir o card substitui o que está no editor (dá para desfazer com Ctrl+Z). Continuar?')) return
+    setDraftStored(false); commit(() => loaded); setSelection([]); setError('')
+    setNotice(`“${card.name}” aberto no editor. Publique para colocá-lo no ar.`)
+  }
+  const activateCard = async (loaded, card) => {
+    if (status === 'saving' || !baseline) return
+    const problem = validate(loaded)
+    if (problem) { setError(`O card “${card.name}” não pode ir ao ar: ${problem.message.replace('“Página → O encontro”', 'o editor')}`); return }
+    const warning = dirty ? '\n\nAs alterações não publicadas que estão no editor serão descartadas.' : ''
+    if (!window.confirm(`Ativar “${card.name}”? Ela passa a ser a call que ela vê agora. A call atual fica guardada na aba Salvos.${warning}`)) return
+    window.clearTimeout(saveTimer.current)
+    setStatus('saving'); setError(''); setNotice(''); setConflict(false)
+    const config = { ...loaded, revision: meta.revision + 1 }
+    try {
+      // guarda a call que está no ar antes de trocá-la
+      const live = baseline
+      if (live.hasPlannedCall !== false || live.blocks.length) {
+        await updateLibrary(list => [toCard(live, `Anterior · ${live.title || 'sem nome'}`), ...list]).catch(err => { console.error(err); throw Object.assign(new Error('archive'), { code: 'ARCHIVE' }) })
+      }
+      const updatedAt = await savePlanning(config, { expectedUpdatedAt: meta.updatedAt })
+      history.reset(config); setBaseline(structuredClone(config)); setMeta({ updatedAt, revision: config.revision }); setSelection([]); setDraft(null); localStorage.removeItem(draftKey); setDraftStored(false)
+      setStatus('saved'); setNotice(`“${card.name}” está no ar.`)
+      saveTimer.current = window.setTimeout(() => setStatus('ready'), 3000)
+    } catch (err) {
+      setStatus('ready')
+      if (err.code === 'CONFLICT') setConflict(true)
+      else if (err.code === 'ARCHIVE') setError('Não consegui guardar a call atual antes de trocar, então nada foi alterado. Tente de novo.')
+      else setError('Não foi possível ativar o card. Nada foi alterado; tente novamente.')
+    }
+  }
+
   const leave = destination => { if (!dirty || window.confirm('Você tem alterações não publicadas. Sair do editor?')) navigate(destination) }
   const testAsUser = () => {
     if (dirty) { try { localStorage.setItem(draftKey, JSON.stringify(planning)) } catch { setError('Não foi possível guardar seu rascunho. Publique as alterações antes de iniciar o teste.'); return } }
@@ -371,6 +409,7 @@ function Admin() {
     <div className="builder-status">
       <div className="studio-status" role="status"><span className={dirty ? 'status-dot unsaved' : 'status-dot'} />{statusText}</div>
       {error && <div className="studio-notice" role="alert">{error}{status === 'error' && <button type="button" onClick={() => { setStatus('loading'); setError(''); setRetry(value => value + 1) }}>Tentar novamente</button>}</div>}
+      {notice && !error && <div className="studio-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')}>Ok</button></div>}
       {conflict && <div className="studio-notice" role="alert">Essa call foi alterada em outro lugar (outra aba ou aparelho) depois que você abriu o editor.
         <button type="button" onClick={() => { setConflict(false); setStatus('loading'); setRetry(value => value + 1) }}>Carregar a versão nova</button>
         <button type="button" onClick={() => save({ force: true })}>Publicar a minha mesmo assim</button></div>}
@@ -380,7 +419,7 @@ function Admin() {
     </div>
     {planning && <div className={`builder ${hidden.library ? 'hide-library' : ''} ${hidden.inspector ? 'hide-inspector' : ''}`}>
       <aside className="builder-library" aria-label="Biblioteca de blocos">
-        <Library blocks={planning.blocks} selectedId={selectedId} onSelect={setSelectedId} onInsert={insertBlock} onMoveBy={canvasMode ? (id, delta) => api.zOrder([id], delta < 0 ? 'backward' : 'forward') : api.moveBy} onTemplate={applyTemplate}
+        <Library blocks={planning.blocks} selectedId={selectedId} onSelect={setSelectedId} onInsert={insertBlock} onMoveBy={canvasMode ? (id, delta) => api.zOrder([id], delta < 0 ? 'backward' : 'forward') : api.moveBy} onTemplate={applyTemplate} cards={{ current: () => planningRef.current, onOpen: openCard, onActivate: activateCard }}
           onPaletteDown={(event, type) => startDrag(event, { kind: 'new', type, label: blockLabels[type] })} />
       </aside>
       <section className="builder-stage" aria-label="Palco">

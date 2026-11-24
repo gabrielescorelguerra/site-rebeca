@@ -24,8 +24,8 @@
 /* Abas, campos e seções */
 .inspector-title h2 { margin: 0; font: 400 22px/1.2 Georgia, serif; letter-spacing: -.02em; color: #965365; }
 .inspector-title p { margin: 6px 0 0; font-size: 11px; line-height: 1.6; color: #9a878b; }
-.inspector-tabs { display: flex; gap: 4px; margin: 12px 0 4px; padding: 4px; border: 1px solid #e7dfdc; border-radius: 12px; background: #fcfaf8; }
-.inspector-tabs button { flex: 1 1 0; min-height: 34px; padding: 0 6px; border-radius: 8px; color: #92818a; font-size: 11px; cursor: pointer; white-space: nowrap; }
+.inspector-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; padding: 4px; border: 1px solid #e7dfdc; border-radius: 12px; background: #fcfaf8; }
+.inspector-tabs button { flex: 1 1 auto; min-height: 34px; padding: 0 6px; border-radius: 8px; color: #92818a; font-size: 11px; cursor: pointer; white-space: nowrap; }
 .inspector-tabs button:hover { background: #ece5e3; }
 .inspector-tabs button.active { background: #efe2e5; color: #935a70; }
 .inspector-body { display: flex; flex-direction: column; gap: 16px; padding: 14px 2px 4px; }
@@ -165,3 +165,16 @@
 .builder.hide-library .builder-library, .builder.hide-inspector .builder-inspector { display: none; }
 .stage-tools > button[aria-pressed='true'] { background: #efe2e5; color: #935a70; border-color: #dcbec8; }
 .cv-block.is-selected { z-index: 9000 !important; }
+
+/* cards de call guardados */
+.cards-panel { display: flex; flex-direction: column; gap: 10px; }
+.cards-save { display: flex; flex-direction: column; gap: 8px; }
+.cards-note { margin: 0; font-size: 12px; line-height: 1.5; color: #7a5a66; }
+.cards-note.is-error { color: #b13a52; }
+.cards-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.saved-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid #ebe1de; border-radius: 12px; background: #fff; }
+.saved-card strong { font-size: 13px; color: #4d3a41; overflow-wrap: anywhere; }
+.saved-card small { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #a28f96; }
+.saved-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.saved-card-actions > button:not(.secondary-button) { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #ebe1de; border-radius: 8px; background: #fff; color: #965365; cursor: pointer; }
+.saved-card-actions > button:disabled { opacity: .5; cursor: default; }
