@@ -445,10 +445,6 @@ function Admin() {
           </div>
         </div>
         {busy && <p className="canvas-banner" role="status">{busy}</p>}
-        {!canvasMode && !busy && <div className="canvas-banner">
-          <span><strong>Novo: canvas livre.</strong> Posicione, redimensione e gire qualquer bloco como no Canva, com o resultado grande na tela. Sua call é convertida sem mudar a aparência — dá para voltar à grade quando quiser.</span>
-          <button type="button" className="secondary-button" onClick={switchToCanvas}>Usar canvas livre</button>
-        </div>}
         {canvasMode && device === 'mobile' && !planning.canvas.mobile.custom && <div className="canvas-banner">
           <span>No celular, os blocos aparecem em coluna, na ordem em que estão no computador. Quer posicionar cada um à mão?</span>
           <button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={customizeMobile}>Personalizar o celular</button>
