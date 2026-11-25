@@ -36,4 +36,4 @@ Detalhes do editor:
 Registros antigos (campos soltos como `showActivities`, `activities`…) são convertidos em blocos automaticamente ao abrir; os campos antigos continuam no registro. Publicar compara a versão carregada (`updated_at`) e avisa se a call foi alterada em outro lugar.
 
 ## Lista de desejos (bucket list do casal)
-Escolha “Lista de desejos” dentro de “Nós dois” (`/links?aba=lista`, só admin por enquanto). Ideias, sorteio de ideias, roleta, conquistas, fotos e lembranças ficam na tabela `bucket_items` (uma linha por ideia). Execute o trecho final de `supabase-schema.sql` no Supabase antes de usar. As fotos vão para o bucket `call-media`.
+Escolha “Lista de desejos” dentro de “Nós dois” (`/links?aba=lista`, só admin por enquanto). Ideias (riscadas como numa bucket list), sorteio, fotos e lembranças ficam na tabela `bucket_items` (uma linha por ideia). Execute o trecho final de `supabase-schema.sql` no Supabase antes de usar. As fotos vão para o bucket `call-media`.
