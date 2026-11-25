@@ -72,7 +72,7 @@ function LinksPanel({ admin, authenticated, onDirty }) {
   </section>
 }
 
-const OPTIONS = [{ key: 'links', label: 'Nossos links' }, { key: 'lista', label: 'Nossa lista' }]
+const OPTIONS = [{ key: 'links', label: 'Links' }, { key: 'lista', label: 'Lista de desejos' }]
 
 export default function Links() {
   const { admin, authenticated, testing } = useAccess()
@@ -97,8 +97,11 @@ export default function Links() {
   const panel = key => `section-panel ${shown === key ? (leaving ? 'is-leaving' : 'is-entering') : ''}`
 
   return <main className="site-shell links-shell">
-    <header className="links-header"><Link className="text-button" to="/" viewTransition onClick={event => { if (linksDirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
-    {admin && <SectionSwitch options={OPTIONS} value={wanted} onChange={choose} label="Seções" />}
+    <header className={`links-header ${admin ? 'has-switch' : ''}`}>
+      <Link className="text-button" to="/" viewTransition onClick={event => { if (linksDirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link>
+      {admin && <SectionSwitch options={OPTIONS} value={wanted} onChange={choose} label="Seções" />}
+      <span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span>
+    </header>
     <div className="section-stage" style={{ '--dir': dir }}>
       <div id="panel-links" role="tabpanel" aria-labelledby="tab-links" className={panel('links')} hidden={shown !== 'links'}><LinksPanel admin={admin} authenticated={authenticated} onDirty={setLinksDirty} /></div>
       {admin && (listaVisited || wanted === 'lista') && <div id="panel-lista" role="tabpanel" aria-labelledby="tab-lista" className={panel('lista')} hidden={shown !== 'lista'}><BucketList role={role} /></div>}

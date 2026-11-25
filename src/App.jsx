@@ -85,7 +85,7 @@ function App() {
           <span className={isOpening ? 'animate-[arrow-pulse_.7s_ease-in-out_infinite] text-[1.15rem] leading-none' : 'text-[1.15rem] leading-none'} aria-hidden="true">↗</span>
         </button>
 
-        <button type="button" className="welcome-links-button" onClick={() => navigate('/links', { viewTransition: true })}>Nossos links <span aria-hidden="true">↗</span></button>
+        <button type="button" className="welcome-links-button" onClick={() => navigate('/links', { viewTransition: true })}>Nós dois <span aria-hidden="true">↗</span></button>
         </div>
 
       </section>

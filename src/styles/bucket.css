@@ -97,7 +97,7 @@
 .bk-dots i { display: block; width: 7px; height: 7px; border: 1px solid var(--rose); border-radius: 50%; }
 .bk-dots i.on { background: var(--rose); }
 .bk-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; opacity: 0; transform: translateX(6px); transition: opacity .3s, transform .4s var(--ease); }
-.bk-idea:hover .bk-actions, .bk-idea:focus-within .bk-actions, .bk-memory-tile:hover .bk-actions, .bk-memory-tile:focus-within .bk-actions { opacity: 1; transform: none; }
+.bk-idea:hover .bk-actions, .bk-idea:focus-within .bk-actions { opacity: 1; transform: none; }
 @media (hover: none) { .bk-actions { opacity: 1; transform: none; } }
 .bk-pill { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border: 1px solid var(--rose); border-radius: 999px; background: transparent; color: var(--deep); font-size: 13px; font-weight: 500; transition: background .3s, color .3s, transform .3s var(--ease); }
 .bk-pill svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -111,24 +111,28 @@
 .bk-thumbs a:hover img { transform: translateY(-2px); }
 .is-leaving { height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; opacity: 0; overflow: hidden; border-color: transparent !important; animation: none !important; }
 
-/* galeria de memórias */
-.bk-gallery { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 40px 22px; margin: 26px 0 0; padding: 0; list-style: none; align-items: start; }
-.bk-memory-tile { position: relative; grid-column: span 4; min-width: 0; animation: bk-row-in .8s calc(var(--i, 0) * 70ms) var(--ease) both; transition: height .4s var(--ease), opacity .4s; }
-.bk-memory-tile.is-wide { grid-column: span 6; }
-.bk-memory-tile.is-tall { grid-column: span 3; }
-.bk-memory-tile.is-mid { grid-column: span 4; }
-.bk-memory-tile.is-text { grid-column: span 3; }
-.bk-memory-tile.is-open { grid-column: span 12; max-width: 640px; }
+/* o que já vivemos: linha do tempo por mês */
+.bk-timeline { margin: 22px 0 0; padding: 0; list-style: none; }
+.bk-month + .bk-month { margin-top: 34px; }
+.bk-month-name { margin-left: 84px; padding-bottom: 10px; border-bottom: 1px solid var(--line); font: normal 20px/1.3 Georgia, serif; letter-spacing: -.03em; color: var(--deep); }
+.bk-month > ul { margin: 0; padding: 0; list-style: none; }
+.bk-moment { position: relative; display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 0 24px; padding: 22px 0; animation: bk-row-in .8s calc(var(--i, 0) * 60ms) var(--ease) both; transition: height .4s var(--ease), padding .4s var(--ease), opacity .4s, background 1s; }
+.bk-moment + .bk-moment { border-top: 1px solid #f0e8e9; }
+.bk-moment::before { content: ''; position: absolute; left: 72px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.bk-day { display: grid; justify-items: end; align-content: start; font-size: 12px; color: var(--mute); text-transform: lowercase; line-height: 1.2; }
+.bk-day b { font: normal 30px/1 Georgia, serif; letter-spacing: -.04em; color: var(--deep); }
+.bk-moment-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding-left: 12px; }
+.bk-moment-body.has-photo { grid-template-columns: 220px minmax(0, 1fr); }
+.bk-moment.is-open > .bk-edit { padding-left: 12px; }
 .bk-photo { display: block; overflow: hidden; border-radius: 4px; background: var(--wash); }
-.bk-photo img { display: block; width: 100%; object-fit: cover; transition: transform .9s var(--ease); }
-.is-wide .bk-photo img { aspect-ratio: 4 / 3; } .is-tall .bk-photo img { aspect-ratio: 4 / 5; } .is-mid .bk-photo img { aspect-ratio: 1; }
+.bk-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; transition: transform .9s var(--ease); }
 .bk-photo:hover img { transform: scale(1.04); }
-.bk-memory-tile .bk-name { margin-top: 12px; font-size: 24px; line-height: 1.17; }
-.bk-memory-tile .bk-meta { margin-top: 4px; }
-.bk-quote { margin: 0 0 12px; padding-left: 18px; border-left: 2px solid var(--rose); font: italic 24px/1.3 Georgia, serif; letter-spacing: -.02em; color: var(--deep); overflow-wrap: anywhere; white-space: pre-wrap; }
-.bk-quote-small { margin-top: 8px; max-width: 46ch; font: italic 16px/1.5 Georgia, serif; color: #5d4a52; overflow-wrap: anywhere; white-space: pre-wrap; }
-.bk-actions.inline { flex-direction: row; justify-content: flex-start; gap: 18px; margin-top: 8px; }
-.bk-memory-tile.is-arriving::after { content: ''; position: absolute; inset: -12px; border: 1px solid var(--rose); border-radius: 10px; pointer-events: none; animation: bk-halo 1.8s var(--ease) both; }
+.bk-moment .bk-name { font-size: 26px; line-height: 1.18; }
+.bk-moment .bk-meta { margin-top: 6px; }
+.bk-quote-small { margin-top: 10px; max-width: 52ch; font: italic 17px/1.5 Georgia, serif; color: #5d4a52; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bk-actions.inline { flex-direction: row; justify-content: flex-start; gap: 18px; margin-top: 10px; }
+.bk-moment:hover .bk-actions, .bk-moment:focus-within .bk-actions { opacity: 1; transform: none; }
+.bk-moment.is-arriving { background: linear-gradient(90deg, var(--wash), transparent 80%); }
 
 /* formulários na própria linha */
 .bk-edit { display: grid; gap: 14px; width: 100%; animation: bk-edit-in .5s var(--ease) both; }
@@ -161,10 +165,11 @@
 @media (max-width: 860px) {
   .bk-ideas { column-count: 1; }
   .bk-idea.is-lead .bk-name { font-size: 32px; }
-  .bk-gallery { display: flex; gap: 18px; margin-right: -6vw; padding-right: 6vw; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
-  .bk-gallery::-webkit-scrollbar { display: none; }
-  .bk-memory-tile, .bk-memory-tile.is-wide, .bk-memory-tile.is-tall, .bk-memory-tile.is-mid, .bk-memory-tile.is-text { flex: 0 0 min(76vw, 300px); scroll-snap-align: start; }
-  .bk-memory-tile.is-open { flex-basis: min(88vw, 420px); }
+  .bk-month-name { margin-left: 0; }
+  .bk-moment { grid-template-columns: 44px minmax(0, 1fr); gap: 0 14px; }
+  .bk-moment::before { left: 52px; }
+  .bk-day b { font-size: 24px; }
+  .bk-moment-body.has-photo { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .bk-field { gap: 12px; }
   .bk-suggest { font-size: 0; gap: 0; } .bk-suggest svg { width: 20px; height: 20px; }
   .bk-strip { align-items: flex-start; }

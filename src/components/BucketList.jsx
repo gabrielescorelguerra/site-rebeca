@@ -118,28 +118,44 @@ function Idea({ item, index, who, mode, setMode, picked, flash, handlers }) {
   </li>
 }
 
+// Uma lembrança na linha do tempo: dia à esquerda, foto e frase do mesmo tamanho para todas.
 function Memory({ item, index, who, mode, setMode, arriving, handlers }) {
-  const span = ['wide', 'tall', 'tall', 'mid', 'mid'][index % 5]
+  const d = new Date(item.doneAt)
   const [main, ...rest] = item.photos
-  return <li id={`memory-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-memory-tile ${main ? `is-${span}` : 'is-text'} ${arriving ? 'is-arriving' : ''} ${mode ? 'is-open' : ''}`}>
-    {mode === 'edit' ? <EditForm item={item} onSubmit={async (it, patch) => { if (await handlers.save(it.id, patch)) setMode(null) }} onCancel={() => setMode(null)} onRemove={handlers.remove} onError={handlers.error} /> : <>
+  return <li id={`memory-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-moment ${arriving ? 'is-arriving' : ''} ${mode ? 'is-open' : ''}`}>
+    <p className="bk-day" aria-hidden="true"><b>{Number.isNaN(d.getTime()) ? '–' : d.getDate()}</b>{Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</p>
+    {mode === 'edit' ? <EditForm item={item} onSubmit={async (it, patch) => { if (await handlers.save(it.id, patch)) setMode(null) }} onCancel={() => setMode(null)} onRemove={handlers.remove} onError={handlers.error} /> : <div className={`bk-moment-body ${main ? 'has-photo' : ''}`}>
       {main && <a className="bk-photo" href={main} target="_blank" rel="noopener noreferrer"><img src={main} alt={`Foto de ${item.title}`} loading="lazy" /><span className="sr-only"> (abre em nova aba)</span></a>}
-      {!main && item.memory && <blockquote className="bk-quote">{item.memory}</blockquote>}
-      <h3 className="bk-name">{item.title}</h3>
-      <p className="bk-meta">{dateLabel(item.doneAt)} · {categoryOf(item.category).label} · {who}</p>
-      {main && item.memory && <p className="bk-quote-small">“{item.memory}”</p>}
-      {rest.length > 0 && <ul className="bk-thumbs">{rest.map((url, i) => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={`Foto ${i + 2} de ${item.title}`} loading="lazy" /></a></li>)}</ul>}
-      <div className="bk-actions inline">
-        <button type="button" className="bk-edit-link" aria-label={`Editar ${item.title}`} onClick={() => setMode({ id: item.id, kind: 'edit' })}>Editar</button>
-        <button type="button" className="bk-edit-link" aria-label={`Voltar para a lista: ${item.title}`} onClick={() => handlers.undo(item)}>Desfazer</button>
+      <div className="bk-moment-text">
+        <h3 className="bk-name">{item.title}</h3>
+        <p className="bk-meta"><span className="sr-only">{dateLabel(item.doneAt)} · </span>{categoryOf(item.category).label} · {who}</p>
+        {item.memory && <p className="bk-quote-small">“{item.memory}”</p>}
+        {rest.length > 0 && <ul className="bk-thumbs">{rest.map((url, i) => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={`Foto ${i + 2} de ${item.title}`} loading="lazy" /></a></li>)}</ul>}
+        <div className="bk-actions inline">
+          <button type="button" className="bk-edit-link" aria-label={`Editar ${item.title}`} onClick={() => setMode({ id: item.id, kind: 'edit' })}>Editar</button>
+          <button type="button" className="bk-edit-link" aria-label={`Voltar para a lista: ${item.title}`} onClick={() => handlers.undo(item)}>Desfazer</button>
+        </div>
       </div>
-    </>}
+    </div>}
   </li>
+}
+
+// Agrupa as lembranças por mês, da mais recente para a mais antiga.
+function byMonth(list) {
+  const groups = []
+  for (const item of list) {
+    const d = new Date(item.doneAt)
+    const key = Number.isNaN(d.getTime()) ? 'sem-data' : `${d.getFullYear()}-${d.getMonth()}`
+    const label = Number.isNaN(d.getTime()) ? 'Sem data' : d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase())
+    const last = groups[groups.length - 1]
+    if (last?.key === key) last.items.push(item); else groups.push({ key, label, items: [item] })
+  }
+  return groups
 }
 
 export default function BucketList({ role }) {
   const me = role === 'admin' ? 'admin' : 'user'
-  const who = item => (item.author === me ? 'ideia sua' : me === 'admin' ? 'ideia dela' : 'ideia do seu amor')
+  const who = item => (item.author === me ? 'ideia sua' : me === 'admin' ? 'ideia dela' : 'ideia dele')
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -191,7 +207,7 @@ export default function BucketList({ role }) {
     try { const updated = await updateItem(id, patch); setItems(list => list.map(item => (item.id === id ? updated : item))); setError(''); flash('Salvo.'); return true }
     catch (err) { console.error(err); fail('Não foi possível salvar. Tente de novo.'); return false }
   }
-  // Fizemos: a linha se recolhe e a ideia reaparece na galeria, com um halo.
+  // Fizemos: a linha se recolhe e a ideia reaparece na linha do tempo, com um destaque.
   const finish = async (item, patch) => {
     try {
       const updated = await updateItem(item.id, patch)
@@ -244,9 +260,9 @@ export default function BucketList({ role }) {
   const open = form.title.trim().length > 0
   const sentence = items === null ? 'Abrindo a lista…' : `${total.todo} para viver · ${total.done} ${total.done === 1 ? 'vivida' : 'vividas'}`
 
-  return <section className="bk" aria-label="Nossa lista">
+  return <section className="bk" aria-label="Lista de desejos">
     <header className="bk-mast">
-      <div className="bk-title"><h1>Nossa lista<span>.</span></h1><p className="bk-count" aria-live="polite">{sentence}</p></div>
+      <div className="bk-title"><h1>Lista de desejos<span>.</span></h1><p className="bk-count" aria-live="polite">{sentence}</p></div>
       <nav aria-label="Categorias"><ul className="bk-nav">
         <li><button type="button" aria-current={!category} onClick={() => setCategory('')}>Tudo</button></li>
         {CATEGORIES.map(entry => <li key={entry.key}><button type="button" aria-current={category === entry.key} onClick={() => setCategory(entry.key)}>{entry.label}</button></li>)}
@@ -290,7 +306,10 @@ export default function BucketList({ role }) {
 
     <section aria-labelledby="bk-lived-title" className="bk-lived">
       <h2 id="bk-lived-title" className="bk-section big">O que já vivemos <small>{lived.length}</small></h2>
-      {lived.length ? <ul className="bk-gallery">{lived.map((item, index) => <Memory key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} arriving={arrived === item.id} handlers={handlers} />)}</ul>
+      {lived.length ? <ol className="bk-timeline">{byMonth(lived).map(group => <li key={group.key} className="bk-month">
+        <h3 className="bk-month-name">{group.label}</h3>
+        <ul>{group.items.map(item => <Memory key={item.id} item={item} index={lived.indexOf(item)} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} arriving={arrived === item.id} handlers={handlers} />)}</ul>
+      </li>)}</ol>
         : items !== null && <p className="bk-empty soft">Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
     </section>
   </section>

@@ -11,7 +11,7 @@ Um espaço íntimo, romântico e tranquilo. Preserve o tom carinhoso, os espaço
 - Texto e controles em Inter/system-ui; etiquetas pequenas em caixa alta, com espaçamento entre letras.
 
 ## Componentes e composição
-A página inicial oferece duas ações: “Ver a próxima call” preenchida em rosa e “Nossos links” com contorno. Em telas estreitas, empilhe os botões. Preserve as saudações existentes.
+A página inicial oferece duas ações: “Ver a próxima call” preenchida em rosa e “Nós dois” com contorno (abre os links e, para o admin, a lista de desejos). Em telas estreitas, empilhe os botões. Preserve as saudações existentes.
 
 A página de links tem título amplo, introdução curta e cartões arredondados: título, descrição opcional e indicação de abertura externa. Duas colunas no desktop e uma no celular. O administrador vê campos editáveis, adicionar/remover e salvar. Os visitantes veem os links publicados.
 
@@ -29,6 +29,7 @@ Use rótulos visíveis, foco por teclado, nomes acessíveis para botões de íco
 - No celular, mantenha a ação de salvar acessível e espaço inferior para não encobrir os campos. Prévia modal deve preservar foco, Escape e movimento reduzido.
 
 ## Linguagem
+O casal é ele (admin) e ela (Rebeca): use “nós dois”, “juntos”; para ela, ideias dele aparecem como “ideia dele”.
 Use português simples e natural. Evite slogans decorativos como “feito com carinho”, “cada detalhe” e “um cantinho especial”. Remova frases que não acrescentam informação. No editor, prefira instruções diretas; nas mensagens pessoais, mantenha um tom de conversa, sem linguagem publicitária. Preserve textos personalizados salvos pelo usuário.
 
 ## Call não planejada
@@ -42,12 +43,13 @@ O botão “Testar como usuário comum” no editor ativa uma simulação nesta 
 - Molduras, texturas e formas são CSS puro e usam a cor de destaque da página; mantenha as molduras antigas (chaves em `src/data/visuals.js`) para não quebrar chamadas salvas.
 - O editor segue a paleta do site (rosa antigo e creme); o visual de cada call é livre e fica por conta do conteúdo.
 
-## Nossa lista
-Segunda escolha da página de links (`/links?aba=lista`, só admin por enquanto), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
+## Lista de desejos
+Segunda escolha da página “Nós dois” (`/links?aba=lista`, só admin por enquanto; a escolha “Links | Lista de desejos” fica no cabeçalho), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
 - Cabeçalho compacto (título pequeno, contagem e categorias na mesma linha); o conteúdo é o protagonista.
 - Campo "Eu quero…": categoria e nível só aparecem quando o campo está em uso; "Sugerir uma" digita a sugestão no campo.
 - "Para viver": ideias em duas colunas, sem cartões; "Fizemos" e "Editar" aparecem ao passar o mouse (sempre visíveis no toque).
-- "Fizemos" abre na própria linha: data (editável), como foi e fotos. A linha se recolhe e a ideia entra em "O que já vivemos", galeria com foto e frase; "Desfazer" devolve para a lista.
+- "Fizemos" abre na própria linha: data (editável), como foi e fotos. A linha se recolhe e a ideia entra em "O que já vivemos", linha do tempo por mês (dia à esquerda, foto 4:3 do mesmo tamanho, frase); "Desfazer" devolve para a lista.
+- Categorias: Sonhos, Bobeiras, Comidas, Viagens, Românticos, Aventuras (as chaves no banco não mudam).
 - Sortear destaca a escolhida no lugar da frase "Sem saber por onde começar?".
 - Sem selos, barras de progresso, emojis ou confete.
 

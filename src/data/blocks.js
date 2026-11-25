@@ -106,7 +106,7 @@ export function migrateLegacy(p) {
 }
 
 const pageDefaults = {
-  hasPlannedCall: true, hidePast: true, title: 'Nossa próxima call', subtitle: 'Um tempinho reservado para nós duas.', eventDuration: 60, eventId: '', revision: 0,
+  hasPlannedCall: true, hidePast: true, title: 'Nossa próxima call', subtitle: 'Um tempinho reservado para nós dois.', eventDuration: 60, eventId: '', revision: 0,
   textAlign: 'left', contentOffset: 90, baseFontSize: 18, fontFamily: 'serif', panelWidth: 1024,
   backgroundColor: '#fbf8f6', textColor: '#31292d', accentColor: '#bd7184', planningLabelColor: '#bd7184', backButtonColor: '#88777c',
   backgroundGradient: false, backgroundGradientColor: '#ecd6e1', backgroundGradientAngle: 135,
@@ -125,7 +125,7 @@ const legacyContent = {
   showSubtitle: true, showDate: true, showActivities: true, showTools: false, sectionLayout: 'columns', showActivityNumbers: true, showDurations: true, activityLayout: 'list',
   activities: [
     { id: 1, name: 'Chegar e contar como foi o dia', duration: '15 min' },
-    { id: 2, name: 'Jogar alguma coisa juntas', duration: '30 min' },
+    { id: 2, name: 'Jogar alguma coisa juntos', duration: '30 min' },
     { id: 3, name: 'Conversar sem pressa', duration: '20 min' },
   ],
   tools: [{ id: 1, name: 'Discord', url: 'https://discord.com' }, { id: 2, name: 'Jogo da noite', url: '' }],

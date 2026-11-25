@@ -2,11 +2,11 @@
 // As chaves das categorias vêm do banco; só os rótulos mudam.
 export const CATEGORIES = [
   { key: 'sonho', label: 'Sonhos' },
-  { key: 'bobagem', label: 'Bobagens' },
-  { key: 'comida', label: 'Mesa' },
-  { key: 'lugar', label: 'Estrada' },
-  { key: 'romantico', label: 'A dois' },
-  { key: 'jogo', label: 'Desafios' },
+  { key: 'bobagem', label: 'Bobeiras' },
+  { key: 'comida', label: 'Comidas' },
+  { key: 'lugar', label: 'Viagens' },
+  { key: 'romantico', label: 'Românticos' },
+  { key: 'jogo', label: 'Aventuras' },
 ]
 export const LEVELS = [
   { value: 1, label: 'Tranquilo' }, { value: 2, label: 'Leve' }, { value: 3, label: 'Animado' }, { value: 4, label: 'Ousado' }, { value: 5, label: 'Insano' },
@@ -15,18 +15,18 @@ export const MAX_PHOTOS = 4
 export const categoryOf = key => CATEGORIES.find(item => item.key === key) || CATEGORIES[1]
 
 export const IDEAS = [
-  ['Ter um jardim só nosso, nem que seja de vaso', 'sonho', 3], ['Morar um tempo em outra cidade', 'sonho', 5], ['Aprender um idioma juntas só para viajar', 'sonho', 4],
+  ['Ter um jardim só nosso, nem que seja de vaso', 'sonho', 3], ['Morar um tempo em outra cidade', 'sonho', 5], ['Aprender um idioma juntos só para viajar', 'sonho', 4],
   ['Fazer uma viagem de trem longa, sem pressa', 'sonho', 3], ['Ter um cachorro e discutir o nome por semanas', 'sonho', 4], ['Montar uma parede da casa só com fotos nossas', 'sonho', 2],
   ['Dublar uma cena de filme e gravar', 'bobagem', 3], ['Dar nome a todas as plantas da casa', 'bobagem', 1], ['Passar uma tarde falando com um sotaque inventado', 'bobagem', 3],
-  ['Fazer uma sessão de fotos com roupas de brechó', 'bobagem', 3], ['Montar uma cabana de lençóis e jantar dentro', 'bobagem', 2], ['Desenhar a outra do pior jeito possível e emoldurar', 'bobagem', 1],
-  ['Jantar às cegas: uma escolhe, a outra descobre', 'comida', 2], ['Pedir o prato mais estranho do cardápio, dividir e dar nota', 'comida', 3], ['Fazer um bolo sem receita e ver no que dá', 'comida', 2],
+  ['Fazer uma sessão de fotos com roupas de brechó', 'bobagem', 3], ['Montar uma cabana de lençóis e jantar dentro', 'bobagem', 2], ['Desenhar um ao outro do pior jeito possível e emoldurar', 'bobagem', 1],
+  ['Jantar às cegas: um escolhe, o outro descobre', 'comida', 2], ['Pedir o prato mais estranho do cardápio, dividir e dar nota', 'comida', 3], ['Fazer um bolo sem receita e ver no que dá', 'comida', 2],
   ['Cozinhar um prato de outro país com a playlist dele', 'comida', 2], ['Comer sobremesa antes do jantar, com orgulho', 'comida', 1], ['Provar cinco sabores de pizza e votar no melhor', 'comida', 1],
-  ['Pegar um ônibus sem saber para onde ele vai', 'lugar', 4], ['Ver o nascer do sol de algum lugar alto', 'lugar', 3], ['Conhecer o mar juntas', 'lugar', 3],
+  ['Pegar um ônibus sem saber para onde ele vai', 'lugar', 4], ['Ver o nascer do sol de algum lugar alto', 'lugar', 3], ['Conhecer o mar juntos', 'lugar', 3],
   ['Dormir numa cidade pequena que ninguém indicou', 'lugar', 4], ['Fazer um piquenique de madrugada na sala', 'lugar', 2], ['Tomar café da manhã em outra cidade', 'lugar', 4],
   ['Escrever uma carta para a gente abrir em 2028', 'romantico', 2], ['Montar a playlist da nossa história, faixa por faixa', 'romantico', 1], ['Voltar ao lugar do nosso primeiro encontro', 'romantico', 2],
   ['Imprimir um álbum de fotos da gente', 'romantico', 1], ['Aprender a tocar uma música nossa', 'romantico', 4], ['Passar um sábado inteiro sem celular', 'romantico', 3],
   ['Maratonar uma saga inteira de filmes num fim de semana', 'jogo', 2], ['Jogar um jogo de tabuleiro valendo prenda', 'jogo', 2], ['Montar um quebra-cabeça de mil peças', 'jogo', 2],
-  ['Aprender uma coreografia inteira', 'jogo', 4], ['Um dia em que cada uma escolhe tudo pela outra', 'jogo', 4], ['Escolher um filme pela capa e ver até o fim, mesmo se for péssimo', 'jogo', 2],
+  ['Aprender uma coreografia inteira', 'jogo', 4], ['Um dia em que um escolhe tudo pelo outro', 'jogo', 4], ['Escolher um filme pela capa e ver até o fim, mesmo se for péssimo', 'jogo', 2],
 ].map(([text, category, level], index) => ({ id: index, text, category, level }))
 
 export function pickIdea(items, previousId = null, random = Math.random) {
