@@ -5,6 +5,8 @@ import { CATEGORIES, LEVELS, MAX_PHOTOS, categoryOf, counts, fromDateInput, pick
 import { uploadImage } from '../data/media'
 import { addSticker, listStickers, pageKey, removeSticker, updateSticker } from '../data/bucketStickers'
 import { StickerLayer, StickerSheet } from './StickerLayer'
+import PaperLeaf, { applyLeaf, runLeaf } from './PaperLeaf'
+import { loadBookmark, saveBookmark } from '../data/notebook'
 import '../styles/bucket.css'
 
 const dateLabel = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '') }
@@ -112,15 +114,15 @@ function EditForm({ item, onSubmit, onCancel, onRemove, onError }) {
 
 const Meta = ({ item, who, date }) => <p className="bk-meta">{[date, categoryOf(item.category).label.toLowerCase(), who].filter(Boolean).join(' · ')}</p>
 
-function Idea({ item, index, who, mode, setMode, picked, flash, handlers }) {
+function Idea({ item, index, who, mode, setMode, picked, flash, fx = '', handlers }) {
   const close = () => setMode(null)
-  return <li id={`idea-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-idea ${picked ? 'is-picked' : ''} ${flash ? 'is-flash' : ''} ${mode ? 'is-open' : ''}`}>
+  return <li id={`idea-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-idea ${picked ? 'is-picked' : ''} ${flash ? 'is-flash' : ''} ${mode ? 'is-open' : ''} ${fx}`}>
     {mode === 'capture' ? <CaptureForm item={item} onSubmit={handlers.finish} onCancel={close} onError={handlers.error} />
       : mode === 'edit' ? <EditForm item={item} onSubmit={async (it, patch) => { if (await handlers.save(it.id, patch)) close() }} onCancel={close} onRemove={handlers.remove} onError={handlers.error} />
         : <>
           <button type="button" className="bk-check" aria-label={`Marcar como feita: ${item.title}`} title="Fizemos" onClick={() => setMode({ id: item.id, kind: 'capture' })}><Ring /></button>
           <div className="bk-body">
-            <h3 className="bk-name">{item.title}</h3>
+            <h3 className="bk-name"><span className="bk-ink">{item.title}</span></h3>
             {item.note && <p className="bk-note">{item.note}</p>}
             <Meta item={item} who={who} />
             {item.photos.length > 0 && <ul className="bk-thumbs">{item.photos.map((url, i) => <li key={url}><button type="button" onClick={() => handlers.zoom({ url, item })} aria-label={`Ver foto ${i + 1} de ${item.title}`}><img src={url} alt="" loading="lazy" draggable="false" /></button></li>)}</ul>}
@@ -133,9 +135,9 @@ function Idea({ item, index, who, mode, setMode, picked, flash, handlers }) {
 }
 
 // Uma lembrança: a mesma linha das ideias, com data, frase e a foto pequena à direita.
-function Memory({ item, index, who, mode, setMode, arriving, handlers }) {
+function Memory({ item, index, who, mode, setMode, arriving, fx = '', handlers }) {
   const [main, ...rest] = item.photos
-  return <li id={`memory-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-idea bk-moment ${arriving ? 'is-arriving' : ''} ${mode ? 'is-open' : ''}`}>
+  return <li id={`memory-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-idea bk-moment ${arriving ? 'is-arriving' : ''} ${mode ? 'is-open' : ''} ${fx}`}>
     {mode === 'edit' ? <EditForm item={item} onSubmit={async (it, patch) => { if (await handlers.save(it.id, patch)) setMode(null) }} onCancel={() => setMode(null)} onRemove={handlers.remove} onError={handlers.error} /> : <>
       <button type="button" className="bk-check is-done" aria-label={`Desmarcar e voltar para a lista: ${item.title}`} title="Desmarcar" onClick={() => handlers.undo(item)}><Ring /></button>
       <div className="bk-body">
@@ -204,27 +206,40 @@ export default function BucketList({ role }) {
   const [arrived, setArrived] = useState(null)
   const [at, setAt] = useState(0)
   const [turn, setTurn] = useState(null)
-  const [slide, setSlide] = useState('')
   const [wide, setWide] = useState(() => !narrow())
   const [cover, setCover] = useState(() => (wasOpened() ? 'open' : 'closed'))
   const [stickers, setStickers] = useState([])
   const [sheetOpen, setSheetOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [fresh, setFresh] = useState(null)
-  const [pull, setPull] = useState(null)
-  const [swipeX, setSwipeX] = useState(null)
   const [zoom, setZoom] = useState(null)
+  const [written, setWritten] = useState(null)
+  const [striking, setStriking] = useState(null)
+  const [erasing, setErasing] = useState(null)
+  const [rubbing, setRubbing] = useState(null)
+  const [bookmark, setBookmark] = useState(null)
+  const [ribbonDraft, setRibbonDraft] = useState(null)
+  const [bookSize, setBookSize] = useState({ w: 0, h: 0 })
   const gesture = useRef(null)
   const dragged = useRef(false)
+  const leafEl = useRef(null)
+  const stopLeaf = useRef(null)
+  const bookEl = useRef(null)
   const [draw, setDraw] = useState({ running: false, scan: null, chosen: null, maxLevel: 5 })
   const timer = useRef(null)
   const typer = useRef(null)
   const noticeTimer = useRef(null)
-  const turnTimer = useRef(null)
 
   const load = useCallback(() => listItems().then(list => { setItems(list); setError('') }).catch(err => { console.error(err); setError('Não foi possível carregar a lista. Confira se a tabela bucket_items existe no Supabase.'); setItems(current => current ?? []) }), [])
   const loadStickers = useCallback(() => listStickers().then(setStickers).catch(err => console.error(err)), [])
-  useEffect(() => { load(); loadStickers() }, [load, loadStickers])
+  useEffect(() => { load(); loadStickers(); loadBookmark().then(setBookmark).catch(err => console.error(err)) }, [load, loadStickers])
+  useEffect(() => {
+    const el = bookEl.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(([entry]) => setBookSize({ w: entry.contentRect.width, h: entry.contentRect.height }))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   useEffect(() => {
     const media = window.matchMedia?.('(max-width: 860px)')
     if (!media) return undefined
@@ -241,7 +256,7 @@ export default function BucketList({ role }) {
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') { load(); loadStickers() } }
     document.addEventListener('visibilitychange', onVisible)
-    return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearInterval(typer.current); window.clearTimeout(noticeTimer.current); window.clearTimeout(turnTimer.current) }
+    return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearInterval(typer.current); window.clearTimeout(noticeTimer.current); stopLeaf.current?.() }
   }, [load, loadStickers])
 
   const flash = text => { setNotice(text); window.clearTimeout(noticeTimer.current); noticeTimer.current = window.setTimeout(() => setNotice(''), 4000) }
@@ -266,35 +281,44 @@ export default function BucketList({ role }) {
   const spread = Math.floor(here / 2)
   const pool = roulettePool(all, { maxLevel: draw.maxLevel, category })
 
-  // Virar: no computador a folha vira em 3D (uma página dupla por vez); no celular, uma página desliza.
+  // ----- virar a página -----
+  // "Folha" = página dupla no computador, página única no celular. A folha que vira é de papel
+  // (PaperLeaf): curva no meio do caminho. Clique, abas, teclado e o dedo usam o mesmo motor.
+  const sheet = wide ? spread : here
+  const lastSheet = wide ? Math.floor(last / 2) : last
+  const sheetOf = index => (wide ? Math.floor(index / 2) : index)
+  const finishTurn = (current, done) => { stopLeaf.current = null; if (done) setAt(current.target); setTurn(null) }
   const goTo = (index, total = pages.length) => {
     const target = Math.max(0, Math.min(index, total - 1))
+    const from = sheet, to = sheetOf(target)
+    if (turn) return
     setPicked(null)
-    if (!wide || reduceMotion()) {
-      if (target === here) return
-      setSlide(target > here ? 'next' : 'prev'); setAt(target); return
-    }
-    const from = spread, to = Math.floor(target / 2)
-    setAt(target)
-    if (from === to || turn) return
+    if (from === to || reduceMotion()) { setAt(target); return }
     setActive(null)
-    setTurn({ dir: to > from ? 'forward' : 'back', from, to })
-    window.clearTimeout(turnTimer.current)
-    turnTimer.current = window.setTimeout(() => setTurn(null), 950)
+    setTurn({ dir: to > from ? 'forward' : 'back', from, to, target, mode: 'auto' })
   }
   const step = delta => goTo(wide ? (spread + delta) * 2 : here + delta)
-  const lastSpread = Math.floor(last / 2)
+  // A folha automática (clique/abas/teclado) anda sozinha assim que aparece.
+  useEffect(() => {
+    if (!turn || turn.mode !== 'auto') return undefined
+    const forward = turn.dir === 'forward'
+    stopLeaf.current = runLeaf(() => leafEl.current, turn.dir, forward ? 0 : 1, forward ? 1 : 0, wide ? 1000 : 760, () => finishTurn(turn, true))
+    return () => stopLeaf.current?.()
+  }, [turn]) // eslint-disable-line react-hooks/exhaustive-deps
+  const attachLeaf = useCallback(el => { leafEl.current = el; if (el && turn) applyLeaf(el, turn.dir === 'forward' ? 0 : 1, turn.dir) }, [turn])
 
   // ----- puxar a página com o dedo/mouse -----
-  // No computador a folha acompanha o ponteiro (o canto da folha fica sob o dedo); ao soltar,
-  // passa da metade (ou foi um puxão rápido) = vira; senão volta. No celular a página desliza junto.
-  const blocked = target => target.closest('button:not(.bk-corner-turn), a, input, textarea, select, label, .bk-sticker, .bk-edit, .bk-controls, .bk-note-card')
+  // O ponto que você segurou fica sob o dedo; ao soltar, passou da metade (ou foi um peteleco) = vira; senão volta.
+  const blocked = target => target.closest('button:not(.bk-corner-turn), a, input, textarea, select, label, .bk-sticker, .bk-edit, .bk-controls, .bk-note-card, .bk-ribbon')
   const pullStart = event => {
-    if (closed || turn || pull || event.button > 0 || blocked(event.target)) return
-    const sheet = event.target.closest('.bk-left, .bk-right, .bk-single')
-    if (!sheet) return
+    if (closed || turn || event.button > 0 || blocked(event.target)) return
+    const page = event.target.closest('.bk-left, .bk-right, .bk-single')
+    if (!page) return
     const rect = event.currentTarget.getBoundingClientRect()
-    gesture.current = { x0: event.clientX, y0: event.clientY, side: sheet.classList.contains('bk-left') ? 'left' : sheet.classList.contains('bk-right') ? 'right' : 'single', rect, started: false, id: event.pointerId, el: event.currentTarget, last: [event.clientX, performance.now()], vx: 0 }
+    const side = page.classList.contains('bk-left') ? 'left' : page.classList.contains('bk-right') ? 'right' : 'single'
+    const origin = wide ? rect.left + rect.width / 2 : rect.left
+    const half = wide ? rect.width / 2 : rect.width
+    gesture.current = { x0: event.clientX, y0: event.clientY, side, origin, half, reach: Math.max(0.3, Math.min(1, Math.abs(event.clientX - origin) / half)), started: false, id: event.pointerId, el: event.currentTarget, last: [event.clientX, performance.now()], vx: 0, p: 0 }
     dragged.current = false
   }
   const pullMove = event => {
@@ -305,45 +329,30 @@ export default function BucketList({ role }) {
     g.vx = (event.clientX - g.last[0]) / Math.max(now - g.last[1], 1); g.last = [event.clientX, now]
     if (!g.started) {
       if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.2) { if (Math.abs(dy) > 14) gesture.current = null; return }
-      if (g.side === 'single') {
-        if ((dx < 0 && here >= last) || (dx > 0 && here <= 0)) { gesture.current = null; return }
-      } else {
-        const dir = g.side === 'right' && dx < 0 ? 'forward' : g.side === 'left' && dx > 0 ? 'back' : null
-        if (!dir || (dir === 'forward' && spread >= lastSpread) || (dir === 'back' && spread <= 0)) { gesture.current = null; return }
-        g.dir = dir
-        setPicked(null); setActive(null)
-        setPull({ dir, from: spread, to: spread + (dir === 'forward' ? 1 : -1), p: dir === 'forward' ? 0 : 1 })
-      }
-      g.started = true; dragged.current = true
+      const dir = dx < 0 && g.side !== 'left' ? 'forward' : dx > 0 && g.side !== 'right' ? 'back' : null
+      if (!dir || (dir === 'forward' && sheet >= lastSheet) || (dir === 'back' && sheet <= 0)) { gesture.current = null; return }
+      const to = sheet + (dir === 'forward' ? 1 : -1)
+      g.dir = dir; g.started = true; g.p = dir === 'forward' ? 0 : 1; dragged.current = true
       g.el.setPointerCapture?.(g.id)
       document.body.classList.add('bk-dragging')
+      setPicked(null); setActive(null)
+      setTurn({ dir, from: sheet, to, target: wide ? to * 2 : to, mode: 'drag' })
     }
-    if (g.side === 'single') { setSwipeX(dx); return }
-    const half = g.rect.width / 2
-    const ratio = Math.max(-1, Math.min(1, (event.clientX - (g.rect.left + half)) / half))
-    const p = Math.acos(ratio) / Math.PI
-    setPull(current => (current ? { ...current, p } : current))
+    if (!wide && g.dir === 'back') g.p = Math.max(0, Math.min(1, 1 - dx / (g.half * 0.9)))
+    else g.p = Math.acos(Math.max(-1, Math.min(1, (event.clientX - g.origin) / (g.reach * g.half)))) / Math.PI
+    applyLeaf(leafEl.current, g.p, g.dir)
   }
   const pullEnd = () => {
     const g = gesture.current
     gesture.current = null
     document.body.classList.remove('bk-dragging')
-    if (!g?.started) return
-    if (g.side === 'single') {
-      const dx = swipeX ?? 0
-      const go = Math.abs(dx) > 90 || Math.abs(g.vx) > 0.6
-      setSwipeX(null)
-      if (go) { setSlide(dx < 0 ? 'next' : 'prev'); setAt(Math.max(0, Math.min(last, here + (dx < 0 ? 1 : -1)))) }
-      return
-    }
-    setPull(current => {
-      if (!current) return current
-      const forward = current.dir === 'forward'
-      // passou da metade, ou deu um peteleco depois de já ter levantado um pouco a folha
-      const done = forward ? current.p > 0.45 || (g.vx < -0.6 && current.p > 0.12) : current.p < 0.55 || (g.vx > 0.6 && current.p < 0.88)
-      window.setTimeout(() => { if (done) setAt(current.to * 2); setPull(null) }, reduceMotion() ? 0 : 480)
-      return { ...current, p: forward ? (done ? 1 : 0) : (done ? 0 : 1), settle: true }
-    })
+    if (!g?.started || !turn) return
+    const forward = g.dir === 'forward'
+    // passou da metade, ou deu um peteleco depois de já ter levantado um pouco a folha
+    const done = forward ? g.p > 0.45 || (g.vx < -0.6 && g.p > 0.12) : g.p < 0.55 || (g.vx > 0.6 && g.p < 0.88)
+    const end = forward ? (done ? 1 : 0) : (done ? 0 : 1)
+    const current = turn
+    stopLeaf.current = runLeaf(() => leafEl.current, g.dir, g.p, end, reduceMotion() ? 0 : 260 + 520 * Math.abs(end - g.p), () => finishTurn(current, done))
   }
   const cornerTurn = delta => { if (dragged.current) { dragged.current = false; return } step(delta) }
   useEffect(() => {
@@ -359,7 +368,13 @@ export default function BucketList({ role }) {
 
   const create = async values => {
     setAdding(true); setError('')
-    try { const created = await addItem({ ...values, title: values.title.trim(), author: me }); setItems(list => [created, ...(list || [])]); flash('Ideia adicionada na primeira página.'); if (here > 1) goTo(0); return true }
+    try {
+      const created = await addItem({ ...values, title: values.title.trim(), author: me })
+      setItems(list => [created, ...(list || [])]); setWritten(created.id); flash('Anotada na primeira página.')
+      window.setTimeout(() => setWritten(current => (current === created.id ? null : current)), 2400)
+      if (sheet > 0) goTo(0)
+      return true
+    }
     catch (err) { console.error(err); fail('Não foi possível adicionar. Tente de novo.'); return false } finally { setAdding(false) }
   }
   const submit = async event => {
@@ -383,34 +398,47 @@ export default function BucketList({ role }) {
     try { const updated = await updateItem(id, patch); setItems(list => list.map(item => (item.id === id ? updated : item))); setError(''); flash('Salvo.'); return true }
     catch (err) { console.error(err); fail('Não foi possível salvar. Tente de novo.'); return false }
   }
-  // Fizemos: a linha se recolhe, o caderno vira até a página do ano e a lembrança aparece com destaque.
+  // Fizemos: o visto é desenhado e a ideia é riscada à mão; a linha some do "Algum dia…", o caderno
+  // vira até a página do ano e lá a lembrança é escrita (título, risco, data, frase e a polaroid presa).
   const finish = async (item, patch) => {
     try {
       const updated = await updateItem(item.id, patch)
       setActive(null); setDraw(current => (current.chosen?.id === item.id ? { ...current, chosen: null } : current))
+      setStriking(item.id)
+      await wait(reduceMotion() ? 0 : 1150)
       await collapse(`idea-${item.id}`)
       const next = all.map(entry => (entry.id === item.id ? updated : entry))
-      setItems(next); setArrived(item.id); setError('')
+      setStriking(null); setItems(next); setError('')
       const nextPages = pagesFor(next)
       const target = pageOf(nextPages, item.id)
-      if (target >= 0) window.setTimeout(() => goTo(target, nextPages.length), 120)
-      window.setTimeout(() => setArrived(current => (current === item.id ? null : current)), 2600)
+      const turns = target >= 0 && sheetOf(target) !== sheet
+      if (turns) goTo(target, nextPages.length)
+      window.setTimeout(() => setArrived(item.id), turns && !reduceMotion() ? (wide ? 1050 : 800) : 60)
+      window.setTimeout(() => setArrived(current => (current === item.id ? null : current)), 5200)
       flash('Riscada!')
-    } catch (err) { console.error(err); fail('Não foi possível guardar. Tente de novo.') }
+    } catch (err) { console.error(err); setStriking(null); fail('Não foi possível guardar. Tente de novo.') }
   }
+  // Desmarcar: o risco é apagado e a lembrança volta para "Algum dia…".
   const undo = async item => {
     try {
       const updated = await updateItem(item.id, { done: false, doneAt: null })
+      setErasing(item.id)
+      await wait(reduceMotion() ? 0 : 750)
       await collapse(`memory-${item.id}`)
+      setErasing(null)
       setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); flash('Voltou para “Algum dia…”.')
-    } catch (err) { console.error(err); fail('Não foi possível desfazer. Tente de novo.') }
+    } catch (err) { console.error(err); setErasing(null); fail('Não foi possível desfazer. Tente de novo.') }
   }
+  // Excluir: passa a borracha.
   const remove = async item => {
     try {
       await removeItem(item.id); setActive(null)
+      setRubbing(item.id)
+      await wait(reduceMotion() ? 0 : 600)
       await collapse(item.done ? `memory-${item.id}` : `idea-${item.id}`)
-      setItems(list => list.filter(entry => entry.id !== item.id)); flash('Ideia removida.')
-    } catch (err) { console.error(err); fail('Não foi possível excluir. Tente de novo.') }
+      setRubbing(null)
+      setItems(list => list.filter(entry => entry.id !== item.id)); flash('Apagada.')
+    } catch (err) { console.error(err); setRubbing(null); fail('Não foi possível excluir. Tente de novo.') }
   }
   const handlers = { save, finish, undo, remove, error: fail, zoom: setZoom }
 
@@ -448,7 +476,7 @@ export default function BucketList({ role }) {
   const openCapture = item => {
     const target = pageOf(pages, item.id)
     if (target >= 0) goTo(target)
-    window.setTimeout(() => setActive({ id: item.id, kind: 'capture' }), turn || (wide && Math.floor(target / 2) !== spread) ? 960 : 0)
+    window.setTimeout(() => setActive({ id: item.id, kind: 'capture' }), target >= 0 && sheetOf(target) !== sheet ? 1060 : 0)
   }
   const openCover = () => {
     rememberOpened()
@@ -496,7 +524,7 @@ export default function BucketList({ role }) {
       </> : <header className="bk-page-head small"><h2>Algum dia… <small>continuação</small></h2></header>}
       <div className="bk-page-body">
         {items === null ? <p className="bk-empty">Abrindo o caderno…</p>
-          : page.items.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{page.items.map((item, i) => <Idea key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} handlers={handlers} />)}</ul>
+          : page.items.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{page.items.map((item, i) => <Idea key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} fx={still ? '' : [written === item.id && 'is-written', striking === item.id && 'is-striking', rubbing === item.id && 'is-rubbing'].filter(Boolean).join(' ')} handlers={handlers} />)}</ul>
             : <p className="bk-empty">{all.length ? 'Nada por aqui com esse filtro.' : 'Página em branco. Escreva a primeira ideia.'}</p>}
       </div>
       {nav}{layer}
@@ -513,7 +541,7 @@ export default function BucketList({ role }) {
         </div>
       </> : <header className="bk-page-head small"><h2>{page.year} <small>continuação</small></h2></header>}
       <div className="bk-page-body">
-        {page.items.length ? <ul className="bk-ideas bk-memories">{page.items.map((item, i) => <Memory key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} arriving={!still && arrived === item.id} handlers={handlers} />)}</ul>
+        {page.items.length ? <ul className="bk-ideas bk-memories">{page.items.map((item, i) => <Memory key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} arriving={!still && arrived === item.id} fx={still ? '' : [erasing === item.id && 'is-erasing', rubbing === item.id && 'is-rubbing'].filter(Boolean).join(' ')} handlers={handlers} />)}</ul>
           : <p className="bk-empty soft">Nada riscado em {page.year} ainda. Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
       </div>
       {nav}{layer}
@@ -521,13 +549,53 @@ export default function BucketList({ role }) {
   }
   const sheetClass = page => `bk-page-sheet is-${page?.type || 'blank'}`
 
-  // Quem aparece embaixo da folha que vira (ver comentário em goTo).
-  const moving = turn || pull
-  const leftIndex = moving ? (moving.dir === 'forward' ? moving.from * 2 : moving.to * 2) : spread * 2
-  const rightIndex = moving ? (moving.dir === 'forward' ? moving.to * 2 + 1 : moving.from * 2 + 1) : spread * 2 + 1
-  const leafFront = moving ? (moving.dir === 'forward' ? moving.from * 2 + 1 : moving.to * 2 + 1) : null
-  const leafBack = moving ? (moving.dir === 'forward' ? moving.to * 2 : moving.from * 2) : null
-  const leafStyle = pull ? { transform: `rotateY(${-180 * pull.p}deg)`, '--shade': Math.sin(pull.p * Math.PI).toFixed(3), transition: pull.settle ? 'transform .48s cubic-bezier(.25,.8,.3,1)' : 'none' } : undefined
+  // Quem fica embaixo enquanto a folha vira. Ao terminar, o que está embaixo já é a página final,
+  // então nada "recarrega": a folha some e a página de baixo continua igual.
+  const forward = turn?.dir === 'forward'
+  const leftIndex = turn && wide ? (forward ? turn.from * 2 : turn.to * 2) : spread * 2
+  const rightIndex = turn && wide ? (forward ? turn.to * 2 + 1 : turn.from * 2 + 1) : spread * 2 + 1
+  const singleIndex = turn && !wide ? (forward ? turn.to : turn.from) : here
+  const leafFront = turn ? (wide ? (forward ? turn.from * 2 + 1 : turn.to * 2 + 1) : forward ? turn.from : turn.to) : null
+  const leafBack = turn && wide ? (forward ? turn.to * 2 : turn.from * 2) : null
+  const paper = (index, side) => <div className={`${sheetClass(pages[index])} bk-paper-page`}>{renderPage(pages[index], index, true, side)}</div>
+  const blankBack = <div className="bk-page-sheet is-blank bk-paper-page"><div className="bk-blank" /></div>
+
+  // ----- o marcador (fitinha) -----
+  // Pendurado na lombada por padrão. Arraste e deite sobre uma página para marcá-la (fica salvo para os dois);
+  // arraste para fora do caderno para tirar. Em outra página, a ponta pendurada leva de volta à página marcada.
+  const markIndex = bookmark ? pages.findIndex(page => page.key === bookmark.page) : -1
+  const openPages = turn ? (wide ? [turn.from * 2, turn.from * 2 + 1] : [turn.from]) : wide ? [spread * 2, spread * 2 + 1] : [here]
+  const laid = markIndex >= 0 && openPages.includes(markIndex) && !closed
+  const anchor = { x: wide ? bookSize.w / 2 + 18 : bookSize.w - 46, y: -4 }
+  const ribbonTo = ribbonDraft || (laid ? { x: (bookmark.x / 100) * bookSize.w, y: (bookmark.y / 100) * bookSize.h } : { x: anchor.x, y: wide ? bookSize.h + 48 : 70 })
+  const ribbonLength = Math.max(40, Math.hypot(ribbonTo.x - anchor.x, ribbonTo.y - anchor.y))
+  const ribbonAngle = (-Math.atan2(ribbonTo.x - anchor.x, ribbonTo.y - anchor.y) * 180) / Math.PI
+  const ribbonGesture = useRef(null)
+  const ribbonDown = event => {
+    if (closed || event.button > 0) return
+    event.stopPropagation(); event.preventDefault()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    ribbonGesture.current = { x0: event.clientX, y0: event.clientY, rect: bookEl.current.getBoundingClientRect(), moved: false }
+  }
+  const ribbonMove = event => {
+    const g = ribbonGesture.current
+    if (!g) return
+    if (!g.moved && Math.hypot(event.clientX - g.x0, event.clientY - g.y0) < 5) return
+    g.moved = true
+    setRibbonDraft({ x: event.clientX - g.rect.left, y: event.clientY - g.rect.top })
+  }
+  const ribbonUp = async event => {
+    const g = ribbonGesture.current
+    ribbonGesture.current = null
+    if (!g) return
+    if (!g.moved) { if (markIndex >= 0 && !laid) goTo(markIndex); return }
+    const inside = event.clientX > g.rect.left && event.clientX < g.rect.right && event.clientY > g.rect.top && event.clientY < g.rect.bottom
+    const page = inside ? document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-sticker-page]')?.dataset.stickerPage : null
+    const next = page ? { page, x: ((event.clientX - g.rect.left) / g.rect.width) * 100, y: ((event.clientY - g.rect.top) / g.rect.height) * 100 } : null
+    setBookmark(next); setRibbonDraft(null)
+    try { await saveBookmark(next); if (next) flash('Página marcada.') } catch (err) { console.error(err); fail('Não foi possível guardar o marcador.') }
+  }
+  const ribbonLabel = laid ? 'Marcador nesta página. Arraste para mudar de lugar ou para fora do caderno para tirar.' : markIndex >= 0 ? `Ir para a página marcada (${markIndex + 1})` : 'Marcador: arraste até uma página para marcá-la'
 
   return <section className="bk" aria-label="Caderno de sonhos">
     <h1 className="sr-only">Caderno de sonhos</h1>
@@ -543,9 +611,9 @@ export default function BucketList({ role }) {
 
     {!closed && <nav className="bk-tabs" aria-label="Seções do caderno">{tabs.map((tab, i) => <button key={tab.label} type="button" style={{ '--i': i }} aria-current={tabOn(tab) ? 'page' : undefined} onClick={() => goTo(tab.index)}>{tab.label}</button>)}</nav>}
 
-    <div className={`bk-book is-${cover} ${wide ? 'is-wide' : 'is-narrow'} ${pull || swipeX !== null ? 'is-pulling' : ''}`} onPointerDown={pullStart} onPointerMove={pullMove} onPointerUp={pullEnd} onPointerCancel={pullEnd} onDragStart={event => event.preventDefault()}>
+    <div ref={bookEl} className={`bk-book is-${cover} ${wide ? 'is-wide' : 'is-narrow'} ${turn ? 'is-turning' : ''} ${turn?.mode === 'drag' ? 'is-pulling' : ''}`} onPointerDown={pullStart} onPointerMove={pullMove} onPointerUp={pullEnd} onPointerCancel={pullEnd} onDragStart={event => event.preventDefault()}>
       <span className="bk-spine" aria-hidden="true" />
-      <span className="bk-ribbon" aria-hidden="true" />
+      {bookSize.w > 0 && <button type="button" className={`bk-ribbon ${laid ? 'is-laid' : ''} ${ribbonDraft ? 'is-dragging' : ''} ${markIndex >= 0 && !laid ? 'is-away' : ''}`} style={{ left: anchor.x - 5, top: anchor.y, height: ribbonLength, transform: `rotate(${ribbonAngle}deg)` }} aria-label={ribbonLabel} title={ribbonLabel} onPointerDown={ribbonDown} onPointerMove={ribbonMove} onPointerUp={ribbonUp} onPointerCancel={() => { ribbonGesture.current = null; setRibbonDraft(null) }} />}
 
       {(draw.running || draw.chosen) && !closed && <aside className="bk-note-card" role="status">
         <span className="bk-tape" aria-hidden="true" />
@@ -570,18 +638,12 @@ export default function BucketList({ role }) {
         <div className="bk-leaf-face bk-leaf-back bk-endpaper" aria-hidden="true"><p>Este caderno é nosso.<br /><span>Para guardar o que a gente quer viver e o que já viveu.</span></p></div>
       </div>}
 
-      {moving && <div className={`bk-leaf ${pull ? 'is-pulled' : `is-${turn.dir}`}`} style={leafStyle} aria-hidden="true">
-        <div className={`bk-leaf-face ${sheetClass(pages[leafFront])}`} inert>{renderPage(pages[leafFront], leafFront, true, 'right')}</div>
-        <div className={`bk-leaf-face bk-leaf-back ${sheetClass(pages[leafBack])}`} inert>{renderPage(pages[leafBack], leafBack, true, 'left')}</div>
-      </div>}
+      {turn && <PaperLeaf ref={attachLeaf} narrow={!wide} front={paper(leafFront, wide ? 'right' : 'single')} back={wide ? paper(leafBack, 'left') : blankBack} />}
 
       {wide ? <>
-        <section key={`l${leftIndex}`} className={`${sheetClass(pages[leftIndex])} bk-left`} data-sticker-page={pages[leftIndex]?.key} aria-label={`Página ${leftIndex + 1}`} inert={closed || undefined}>{renderPage(pages[leftIndex], leftIndex, false, 'left')}</section>
-        <section key={`r${rightIndex}`} className={`${sheetClass(pages[rightIndex])} bk-right`} data-sticker-page={pages[rightIndex]?.key} aria-label={`Página ${rightIndex + 1}`} inert={closed || undefined}>{renderPage(pages[rightIndex], rightIndex, false, 'right')}</section>
-      </> : <>
-        {swipeX !== null && <section className={`${sheetClass(pages[here + (swipeX < 0 ? 1 : -1)])} bk-single bk-under`} aria-hidden="true" inert>{renderPage(pages[here + (swipeX < 0 ? 1 : -1)], here + (swipeX < 0 ? 1 : -1), true)}</section>}
-        <section key={`p${here}`} className={`${sheetClass(pages[here])} bk-single ${slide && swipeX === null ? `slide-${slide}` : ''}`} style={swipeX !== null ? { transform: `perspective(1100px) translateX(${swipeX}px) rotateY(${swipeX * 0.035}deg)`, transformOrigin: swipeX < 0 ? 'left center' : 'right center' } : undefined} data-sticker-page={pages[here]?.key} aria-label={`Página ${here + 1} de ${pages.length}`} inert={closed || undefined}>{renderPage(pages[here], here)}</section>
-      </>}
+        <section className={`${sheetClass(pages[leftIndex])} bk-left`} data-sticker-page={pages[leftIndex]?.key} aria-label={`Página ${leftIndex + 1}`} inert={closed || undefined}>{renderPage(pages[leftIndex], leftIndex, false, 'left')}</section>
+        <section className={`${sheetClass(pages[rightIndex])} bk-right`} data-sticker-page={pages[rightIndex]?.key} aria-label={`Página ${rightIndex + 1}`} inert={closed || undefined}>{renderPage(pages[rightIndex], rightIndex, false, 'right')}</section>
+      </> : <section className={`${sheetClass(pages[singleIndex])} bk-single`} data-sticker-page={pages[singleIndex]?.key} aria-label={`Página ${singleIndex + 1} de ${pages.length}`} inert={closed || undefined}>{renderPage(pages[singleIndex], singleIndex)}</section>}
     </div>
     {sheetOpen && <StickerSheet onPlace={placeSticker} onClose={() => setSheetOpen(false)} />}
     {zoom && <PhotoInHand zoom={zoom} onClose={() => setZoom(null)} />}

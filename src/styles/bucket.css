@@ -29,11 +29,8 @@
   box-shadow: 0 2px 0 #f1e8e9, 0 3px 0 #fffdfb, 0 4px 0 #ebdfe2, 0 6px 0 #fffdfb, 0 7px 0 #e6d8dc, 0 34px 60px #9653651c; }
 .bk-book::before { content: ''; position: absolute; z-index: 1; left: 50%; top: 0; bottom: 0; width: 64px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, #96536510 42%, #9653651f 50%, #96536510 58%, transparent); pointer-events: none; }
 .bk-spine { position: absolute; z-index: 1; left: 50%; top: 14px; bottom: 14px; border-left: 1.5px dashed #dcc4cb; transform: translateX(-50%); pointer-events: none; }
-.bk-ribbon { position: absolute; z-index: 4; left: calc(50% + 14px); top: -4px; width: 9px; height: calc(100% + 48px); background: linear-gradient(90deg, #c27d90, #d494a5 45%, #c27d90); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); box-shadow: 0 2px 6px #0001; pointer-events: none; transform-origin: top; animation: bk-ribbon 1.4s .3s var(--ease) both; }
 
 .bk-page-sheet { position: relative; min-width: 0; height: 100%; overflow: hidden; padding: 44px 54px 22px; display: flex; flex-direction: column; }
-.bk-left { animation: bk-fade .35s var(--ease) both; }
-.bk-right { animation: bk-fade .35s var(--ease) both; }
 .bk-left::before, .bk-single::before { content: ''; position: absolute; left: 36px; top: 0; bottom: 0; width: 1px; background: #ecc3ce; pointer-events: none; }
 .bk-right::after, .bk-single::after { content: ''; position: absolute; right: 0; bottom: 0; width: 30px; height: 30px; background: linear-gradient(315deg, #fbf8f6 50%, #efe3e6 50%, #fffdfb 72%); border-top-left-radius: 4px; box-shadow: -2px -2px 5px #9653650f; pointer-events: none; }
 /* o conteúdo que não couber rola dentro da página (o caderno nunca cresce) */
@@ -311,11 +308,8 @@ body.bk-dragging, body.bk-dragging * { user-select: none !important; -webkit-use
   @keyframes bk-tab-up { from { transform: translateY(30px); opacity: 0; } }
   .bk-book { --page-h: min(660px, calc(100svh - 150px)); grid-template-columns: 1fr; min-height: 520px; }
   .bk-book::before, .bk-spine { display: none; }
-  .bk-ribbon { left: auto; right: 30px; top: auto; bottom: -34px; height: 60px; }
   .bk-page-sheet { padding: 28px 22px 16px 30px; }
   .bk-left::before, .bk-single::before { left: 16px; }
-  .bk-single.slide-next { animation: bk-slide-next .5s var(--ease) both; }
-  .bk-single.slide-prev { animation: bk-slide-prev .5s var(--ease) both; }
   .bk-page-head h2 { font-size: 30px; }
   .bk-year { font-size: 64px; }
   .bk-name { font-size: 19px; }
@@ -361,7 +355,7 @@ body.bk-dragging, body.bk-dragging * { user-select: none !important; -webkit-use
 .bk-filter select { font: 20px var(--hand); color: var(--pencil); }
 
 /* cada ideia ocupa linhas inteiras do papel */
-.bk-idea { gap: 10px; padding: 0; border-bottom: 0; animation: bk-ink-in .9s calc(var(--i, 0) * 70ms) var(--ease) both; }
+.bk-idea { gap: 10px; padding: 0; border-bottom: 0; animation: none; }
 .bk-idea.is-picked, .bk-idea:hover, .bk-idea:focus-within { background: none; box-shadow: none; }
 .bk-ideas.has-pick .bk-idea:not(.is-picked) { opacity: .35; }
 .bk-idea.is-picked .bk-name { background: linear-gradient(transparent 55%, #f4d7de 55% 88%, transparent 88%); }
@@ -448,14 +442,7 @@ body.bk-dragging, body.bk-dragging * { user-select: none !important; -webkit-use
 .bk-corner-turn.next span { animation: bk-corner-hint 3.2s 2s ease-in-out 2; }
 @keyframes bk-corner-hint { 0%, 70%, 100% { width: 30px; height: 30px; } 80% { width: 42px; height: 42px; } }
 
-/* a folha puxada: sombra que acompanha a curva */
-.bk-leaf.is-pulled .bk-leaf-face::after { animation: none; opacity: calc(var(--shade, 0) * .9); }
 
-/* celular: a página de baixo aparece enquanto você puxa a de cima */
-.bk-single { touch-action: pan-y; background: #fffdfb; }
-.bk-single.bk-under { position: absolute; inset: 0; z-index: 0; }
-.bk-book.is-narrow > .bk-single:not(.bk-under) { position: relative; z-index: 1; box-shadow: 0 0 0 transparent; }
-.bk-book.is-narrow.is-pulling > .bk-single:not(.bk-under) { box-shadow: 0 10px 30px #6d344426; }
 
 /* a foto na mão */
 body > .bk-hand { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; align-content: center; gap: 22px; padding: 20px; max-width: none; margin: 0; background: #3b2a3166; backdrop-filter: blur(3px); animation: bk-fade .3s both; cursor: zoom-out; user-select: none; -webkit-user-select: none; }
@@ -479,3 +466,74 @@ body > .bk-hand { position: fixed; inset: 0; z-index: 70; display: grid; place-i
 }
 @media (prefers-reduced-motion: reduce) { .bk-idea { clip-path: none; } }
 @media (max-width: 860px) { .bk-corner-turn { bottom: -16px; } }
+
+/* =====================================================================
+   A folha de papel que vira (PaperLeaf): faixas encadeadas que curvam.
+   ===================================================================== */
+.bk-paper-leaf { position: absolute; z-index: 6; top: 0; bottom: 0; left: 50%; width: 50%; transform-style: preserve-3d; pointer-events: none; --a: 0deg; --s: 0deg; --shade: 0; }
+.bk-paper-leaf.is-narrow { left: 0; width: 100%; }
+.bk-seg { position: absolute; top: 0; left: 100%; width: 100%; height: 100%; transform-origin: left center; transform-style: preserve-3d; transform: rotateY(var(--s)); }
+.bk-paper-leaf > .bk-seg { left: 0; width: calc(100% / 12); transform: rotateY(var(--a)); }
+.bk-seg-face { position: absolute; top: 0; bottom: 0; left: 0; right: -.6px; overflow: hidden; background: #fffdfb; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: translateZ(.2px); }
+.bk-seg-face.is-back { transform: rotateY(180deg) translateZ(.2px); }
+.bk-seg-face * { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.bk-seg-paper { position: absolute; top: 0; left: 0; width: 1200%; height: 100%; }
+.bk-paper-page { position: absolute; inset: 0; height: 100%; background-color: #fffdfb; }
+/* luz e sombra na curva: cada faixa escurece conforme a folha levanta */
+.bk-seg-face::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: var(--shade);
+  /* um degradê só, espalhado pela folha inteira (cada faixa mostra o seu pedaço): sem listras */
+  background: linear-gradient(90deg, #5a283800 0%, #5a283808 45%, #5a28381f 80%, #ffffff40 92%, #5a283814 100%) no-repeat; background-size: 1200% 100%; background-position: calc(var(--i) * 100% / 11) 0; }
+.bk-seg-face.is-back::after { background-image: linear-gradient(270deg, #5a283800 0%, #5a283808 45%, #5a28381a 80%, #ffffff30 92%, #5a283812 100%); background-position: calc((11 - var(--i)) * 100% / 11) 0; }
+.bk-paper-leaf.is-narrow .bk-seg-face { box-shadow: none; }
+/* a página de baixo ganha uma sombra suave enquanto a folha passa */
+.bk-book.is-turning .bk-right, .bk-book.is-turning .bk-single { box-shadow: inset 30px 0 40px -30px #5a283818; }
+
+/* =====================================================================
+   O marcador (fitinha): pendurado, arrastado ou deitado sobre a página.
+   ===================================================================== */
+.bk-ribbon { position: absolute; z-index: 5; width: 10px; padding: 0; border: 0; transform-origin: 5px 0; background: linear-gradient(90deg, #b86f83, #d494a5 45%, #b86f83); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 8px), 0 100%); filter: drop-shadow(0 2px 2px #5a283822); cursor: grab; touch-action: none; transition: height .6s cubic-bezier(.3, 1.3, .5, 1), transform .6s cubic-bezier(.3, 1.3, .5, 1); }
+.bk-ribbon.is-dragging { transition: none; cursor: grabbing; pointer-events: none; }
+.bk-ribbon.is-laid { filter: drop-shadow(1px 3px 2px #5a283826); }
+.bk-ribbon.is-away { cursor: pointer; animation: bk-ribbon-sway 4s ease-in-out infinite; }
+.bk-ribbon:focus-visible { outline: 1.5px dashed var(--deep); outline-offset: 2px; }
+@keyframes bk-ribbon-sway { 0%, 100% { margin-left: 0; } 50% { margin-left: 2px; } }
+.bk-book.is-closed .bk-ribbon { display: none; }
+
+/* =====================================================================
+   Escrever, riscar, apagar: tudo como caneta e papel.
+   ===================================================================== */
+.bk-ink { box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+/* anotar uma ideia nova: a frase é escrita da esquerda para a direita */
+.bk-idea.is-written .bk-name { animation: bk-write 1.1s cubic-bezier(.4, .1, .3, 1) both; }
+.bk-idea.is-written .bk-check { animation: bk-fade .4s 1s both; }
+.bk-idea.is-written .bk-note, .bk-idea.is-written .bk-meta { animation: bk-write .7s 1s both; }
+@keyframes bk-write { from { clip-path: inset(-10% 100% -10% 0); } to { clip-path: inset(-10% -2% -10% 0); } }
+/* fizemos: o visto é desenhado e a frase é riscada à mão */
+.bk-idea.is-striking .bk-tick { stroke-dashoffset: 0; stroke: var(--deep); transition: stroke-dashoffset .5s var(--ease); }
+.bk-idea.is-striking .bk-ink { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='12' viewBox='0 0 120 12'%3E%3Cpath d='M1 7.5c12-2.6 22 1.4 34-.6s23-2.6 35-.2 24 1.8 34-.4 13-.6 15-.2' fill='none' stroke='%23c4687f' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x 0 58% / 120px 12px; animation: bk-strike-draw .7s .4s cubic-bezier(.5, 0, .3, 1) both; }
+.bk-idea.is-striking .bk-name, .bk-idea.is-striking .bk-meta, .bk-idea.is-striking .bk-note { transition: color .6s .6s; color: #8a7a82; }
+@keyframes bk-strike-draw { from { background-size: 0 12px; } to { background-size: 120px 12px; } }
+/* a lembrança chega na página do ano: escrita, riscada, datada e com a foto presa */
+.bk-moment.is-arriving .bk-check { animation: bk-fade .3s both; }
+.bk-moment.is-arriving .bk-tick { animation: bk-tick-draw .5s .1s both; }
+.bk-moment.is-arriving .bk-name { animation: bk-write 1s .2s cubic-bezier(.4, .1, .3, 1) both; }
+.bk-moment.is-arriving .bk-strike { animation: bk-strike-draw .7s 1.2s cubic-bezier(.5, 0, .3, 1) both; }
+.bk-moment.is-arriving .bk-meta { animation: bk-write .7s 1.6s both; }
+.bk-moment.is-arriving .bk-quote-small { animation: bk-write 1.1s 2s cubic-bezier(.4, .1, .3, 1) both; }
+.bk-moment.is-arriving .bk-polaroid { animation: bk-polaroid-in .8s 2.6s cubic-bezier(.2, 1.3, .4, 1) both; }
+.bk-moment.is-arriving .bk-polaroid::before { animation: bk-tape-in .35s 3.25s both; }
+@keyframes bk-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes bk-polaroid-in { from { opacity: 0; transform: translate(10px, -40px) rotate(14deg) scale(1.15); filter: drop-shadow(0 20px 18px #5a283833); } to { opacity: 1; } }
+@keyframes bk-tape-in { from { opacity: 0; transform: rotate(-4deg) scaleX(.3); } to { opacity: 1; } }
+/* desmarcar: o risco é apagado e o visto some */
+.bk-moment.is-erasing .bk-strike { animation: bk-strike-erase .6s cubic-bezier(.5, 0, .3, 1) both; }
+.bk-moment.is-erasing .bk-tick { animation: bk-tick-draw .4s reverse both; }
+@keyframes bk-strike-erase { from { background-size: 120px 12px; background-position: 100% 58%; } to { background-size: 0 12px; background-position: 100% 58%; } }
+/* excluir: a borracha passa e a tinta some */
+.bk-idea.is-rubbing { animation: bk-rub .6s ease-in both; }
+@keyframes bk-rub { 0% { filter: none; } 20% { transform: translateX(-2px); } 40% { transform: translateX(2px); filter: blur(.6px); } 60% { transform: translateX(-1px); opacity: .6; } 100% { transform: none; filter: blur(2px); opacity: 0; } }
+/* os campos do "Fizemos" e do editar aparecem como se fossem escritos */
+.bk-book .bk-edit > * { animation: bk-write .5s calc(var(--n, 0) * 90ms) cubic-bezier(.4, .1, .3, 1) both; }
+.bk-book .bk-edit > *:nth-child(2) { --n: 1; } .bk-book .bk-edit > *:nth-child(3) { --n: 2; } .bk-book .bk-edit > *:nth-child(4) { --n: 3; } .bk-book .bk-edit > *:nth-child(5) { --n: 4; } .bk-book .bk-edit > *:nth-child(6) { --n: 5; } .bk-book .bk-edit > *:nth-child(7) { --n: 6; }
+@media (prefers-reduced-motion: reduce) { .bk-ribbon { transition: none; } }
+.bk-book .bk-left, .bk-book .bk-right, .bk-book .bk-single { touch-action: pan-y; }
