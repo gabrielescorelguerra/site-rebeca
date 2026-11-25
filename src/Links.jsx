@@ -79,11 +79,11 @@ export default function Links() {
   const [linksDirty, setLinksDirty] = useState(false)
   const role = admin ? 'admin' : testing ? 'test' : 'user'
   if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/links' }} replace />
-  if (admin && tab === 'lista') return <BucketList role={role} onBack={() => setParams({}, { replace: true })} onLogout={logout} />
+  if (admin && tab === 'lista') return <BucketList role={role} onBack={() => setParams({}, { replace: true, viewTransition: true })} onLogout={logout} />
   return <main className="site-shell links-shell">
     <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (linksDirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
     {admin && <div className="links-tabs" role="tablist" aria-label="Seções">
-      {[['links', 'Nossos links'], ['lista', 'Nossa lista']].map(([key, label]) => <button key={key} id={`tab-${key}`} role="tab" type="button" aria-selected={tab === key} onClick={() => setParams(key === 'lista' ? { aba: 'lista' } : {}, { replace: true })}>{label}</button>)}
+      {[['links', 'Nossos links'], ['lista', 'Nossa lista']].map(([key, label]) => <button key={key} id={`tab-${key}`} role="tab" type="button" aria-selected={tab === key} onClick={() => setParams(key === 'lista' ? { aba: 'lista' } : {}, { replace: true, viewTransition: true })}>{label}</button>)}
     </div>}
     <div id="panel-links" role="tabpanel" aria-labelledby="tab-links" hidden={tab !== 'links'}><LinksPanel admin={admin} authenticated={authenticated} onDirty={setLinksDirty} /></div>
   </main>

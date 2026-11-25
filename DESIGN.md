@@ -42,10 +42,9 @@ O botão “Testar como usuário comum” no editor ativa uma simulação nesta 
 - Molduras, texturas e formas são CSS puro e usam a cor de destaque da página; mantenha as molduras antigas (chaves em `src/data/visuals.js`) para não quebrar chamadas salvas.
 - O editor segue a paleta do site (rosa antigo e creme); o visual de cada call é livre e fica por conta do conteúdo.
 
-## Nossa lista (exceção deliberada à direção do resto do site)
-Por pedido, a lista de desejos (`/links?aba=lista`, só admin por enquanto) tem identidade própria, sem o creme e o rosa do restante.
-- Uma família tipográfica (Bricolage Grotesque), títulos grandes e pesados, texto em peso normal.
-- Cores: tinta #101218, azul #2A3BFF (coluna lateral e foco), amarelo marca-texto #FFE14D (ação de sortear e itens feitos). Categorias se diferenciam por texto, não por cor.
-- Sem cartões, selos, barras de progresso, emojis ou confete. Cada ideia é uma linha com divisória; feita = marca-texto passando sobre o título.
-- Sortear destaca uma linha da própria lista; sugestões preenchem o campo de nova ideia.
-- Cantos retos; só o botão de marcar e o seletor de nível são circulares.
+## Nossa lista
+Página própria dentro da identidade do site (`/links?aba=lista`, só admin por enquanto).
+- Mesma paleta e tipografia do resto: creme, rosa antigo #bd7184, #965365, Georgia nos títulos e nas ideias, sistema nos controles, cabeçalho "Voltar / rebeca / sair" e círculos de fundo.
+- O que a diferencia: ideias em linhas com divisória (sem cartões), coluna lateral com categorias e contagens, e o marca-texto rosa que passa sobre o título quando a ideia é feita.
+- Sem selos, barras de progresso, emojis ou confete. Sortear destaca uma linha da própria lista; sugestões preenchem o campo de nova ideia.
+- Movimento: entrada em cascata da coluna e das linhas, check que se desenha, marca-texto que corre, saída com altura que recolhe ao excluir, sublinhados que deslizam e transição suave entre "Nossos links" e "Nossa lista" (View Transitions, quando o navegador suporta). Tudo é desligado com prefers-reduced-motion.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Heart, LogOut } from 'lucide-react'
 import { addItem, listItems, removeItem, updateItem } from '../data/bucketList'
 import { CATEGORIES, LEVELS, MAX_PHOTOS, categoryOf, counts, pickIdea, roulettePool } from '../data/bucketIdeas'
 import { uploadImage } from '../data/media'
@@ -15,7 +16,7 @@ function Level({ value, onChange, label = 'Nível' }) {
   </div>
 }
 
-function Item({ item, me, picked, flash, onSave, onToggle, onRemove, onError }) {
+function Item({ item, index, me, picked, flash, onSave, onToggle, onRemove, onError }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(item)
   const [uploading, setUploading] = useState(false)
@@ -42,9 +43,9 @@ function Item({ item, me, picked, flash, onSave, onToggle, onRemove, onError }) 
     if (ok) setEditing(false)
   }
 
-  return <li id={`item-${item.id}`} className={`bk-item ${item.done ? 'is-done' : ''} ${picked ? 'is-picked' : ''} ${flash ? 'is-flash' : ''}`}>
+  return <li id={`item-${item.id}`} style={{ '--i': Math.min(index, 10) }} className={`bk-item ${item.done ? 'is-done' : ''} ${picked ? 'is-picked' : ''} ${flash ? 'is-flash' : ''}`}>
     <button type="button" className="bk-check" aria-pressed={item.done} aria-label={`${item.done ? 'Desmarcar' : 'Marcar como feita'}: ${item.title}`} onClick={() => onToggle(item)}>
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" /></svg>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path pathLength="1" d="M3 8.5l3.2 3L13 4.5" /></svg>
     </button>
     {!editing ? <div className="bk-body">
       <h3 className="bk-name"><span>{item.title}</span></h3>
@@ -120,7 +121,12 @@ export default function BucketList({ role, onBack, onLogout }) {
     if (await save(item.id, { done, doneAt: done ? new Date().toISOString() : null }) && done) { flash('Feita! Dá para editar e guardar a lembrança e as fotos.'); setDraw(current => (current.chosen?.id === item.id ? { ...current, chosen: null } : current)) }
   }
   const remove = async item => {
-    try { await removeItem(item.id); setItems(list => list.filter(entry => entry.id !== item.id)); flash('Ideia removida.') } catch (err) { console.error(err); fail('Não foi possível excluir. Tente de novo.') }
+    try {
+      await removeItem(item.id)
+      const el = document.getElementById(`item-${item.id}`)
+      if (el && !reduceMotion()) { el.style.height = `${el.offsetHeight}px`; void el.offsetHeight; el.classList.add('is-leaving'); await new Promise(resolve => window.setTimeout(resolve, 380)) }
+      setItems(list => list.filter(entry => entry.id !== item.id)); flash('Ideia removida.')
+    } catch (err) { console.error(err); fail('Não foi possível excluir. Tente de novo.') }
   }
 
   const pool = roulettePool(items || [], { maxLevel: draw.maxLevel, category: view.category })
@@ -149,11 +155,17 @@ export default function BucketList({ role, onBack, onLogout }) {
   const visible = inStatus.filter(item => !view.category || item.category === view.category).sort((a, b) => Number(a.done) - Number(b.done))
   const sentence = items === null ? 'Abrindo a lista…' : `${total.todo} para fazer, ${total.done} ${total.done === 1 ? 'feita' : 'feitas'}.`
 
-  return <main className="bk-page">
+  return <main className="bk-page site-shell">
+    <div className="ambient-orb bk-orb bk-orb-a" aria-hidden="true" />
+    <div className="ambient-orb bk-orb bk-orb-b" aria-hidden="true" />
+    <header className="links-header bk-header">
+      <button type="button" className="text-button" onClick={onBack}><ArrowLeft size={16} />Nossos links</button>
+      <span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={onLogout}><LogOut size={14} aria-hidden="true" />sair</button></span>
+    </header>
+    <div className="bk-layout">
     <aside className="bk-side">
-      <button type="button" className="bk-back" onClick={onBack}>← Nossos links</button>
       <div className="bk-side-main">
-        <h1>Nossa<br />lista</h1>
+        <h1>Nossa lista<span>.</span></h1>
         <p className="bk-count" aria-live="polite">{sentence}</p>
         <nav aria-label="Categorias">
           <ul className="bk-nav">
@@ -162,14 +174,13 @@ export default function BucketList({ role, onBack, onLogout }) {
           </ul>
         </nav>
         <div className="bk-draw">
-          <button type="button" className="bk-draw-button" disabled={draw.running || !pool.length} onClick={drawNow}>{draw.chosen ? 'Sortear outra' : 'Sortear uma para hoje'}</button>
+          <button type="button" className="bk-draw-button" disabled={draw.running || !pool.length} onClick={drawNow}>{draw.running ? 'Sorteando…' : draw.chosen ? 'Sortear outra' : 'Sortear uma para hoje'}<span aria-hidden="true">→</span></button>
           <label>até o nível
             <select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value), chosen: null })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select>
           </label>
           {items !== null && !pool.length && <p>Nenhuma ideia pendente com esse filtro.</p>}
         </div>
       </div>
-      <button type="button" className="bk-back" onClick={onLogout}>sair</button>
     </aside>
 
     <section className="bk-main" aria-labelledby="bk-compose-title">
@@ -188,7 +199,7 @@ export default function BucketList({ role, onBack, onLogout }) {
         </div>
       </form>
 
-      <p role="status" className="bk-status">{notice}</p>
+      <p role="status" className="bk-status" key={notice}>{notice}</p>
       {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
 
       <div className="bk-toolbar" role="group" aria-label="Situação">
@@ -198,8 +209,9 @@ export default function BucketList({ role, onBack, onLogout }) {
       {draw.chosen && <div className="bk-pick" role="status"><p><span>Hoje</span>{draw.chosen.title}</p><button type="button" className="bk-text-button" onClick={() => toggle(draw.chosen)}>Já fizemos</button><button type="button" className="bk-text-button" onClick={() => setDraw({ ...draw, chosen: null })}>Limpar</button></div>}
 
       {items === null ? <p className="bk-empty">Abrindo a lista…</p>
-        : visible.length ? <ul className={`bk-list ${draw.chosen ? 'has-pick' : ''}`}>{visible.map(item => <Item key={item.id} item={item} me={me} picked={draw.chosen?.id === item.id} flash={draw.flash === item.id} onSave={save} onToggle={toggle} onRemove={remove} onError={fail} />)}</ul>
+        : visible.length ? <ul className={`bk-list ${draw.chosen ? 'has-pick' : ''}`}>{visible.map((item, index) => <Item key={item.id} item={item} index={index} me={me} picked={draw.chosen?.id === item.id} flash={draw.flash === item.id} onSave={save} onToggle={toggle} onRemove={remove} onError={fail} />)}</ul>
           : <p className="bk-empty">{all.length ? 'Nada por aqui com esse filtro.' : 'Ainda não tem nada. Escreva a primeira ideia acima.'}</p>}
     </section>
+    </div>
   </main>
 }
