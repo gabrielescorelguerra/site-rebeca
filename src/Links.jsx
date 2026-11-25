@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight, Heart, LogOut, Plus, Save, Trash2 } from 'lucide-react'
 import { logout, useAccess } from './lib/access'
 import BucketList from './components/BucketList'
+import SectionSwitch from './components/SectionSwitch'
 import { loadLinks, saveLinks, validLink } from './data/relationshipLinks'
 
 function LinksPanel({ admin, authenticated, onDirty }) {
@@ -48,7 +49,7 @@ function LinksPanel({ admin, authenticated, onDirty }) {
     }
   }
 
-  return <section className="links-content page-transition" aria-labelledby="links-title">
+  return <section className="links-content stagger" aria-labelledby="links-title">
 
       <h1 id="links-title">Nossos links<span>.</span></h1>
       <p className="links-intro">Os links que a gente quer guardar.</p>
@@ -71,20 +72,36 @@ function LinksPanel({ admin, authenticated, onDirty }) {
   </section>
 }
 
+const OPTIONS = [{ key: 'links', label: 'Nossos links' }, { key: 'lista', label: 'Nossa lista' }]
+
 export default function Links() {
   const { admin, authenticated, testing } = useAccess()
   const [params, setParams] = useSearchParams()
-  // A lista ainda é só do admin: quem não é admin (inclusive no modo de teste) não vê a aba nem abre pela URL.
-  const tab = admin && params.get('aba') === 'lista' ? 'lista' : 'links'
+  // A lista ainda é só do admin: quem não é admin (inclusive no modo de teste) não vê a escolha nem abre pela URL.
+  const wanted = admin && params.get('aba') === 'lista' ? 'lista' : 'links'
+  const [shown, setShown] = useState(wanted)
+  const [listaVisited, setListaVisited] = useState(wanted === 'lista')
   const [linksDirty, setLinksDirty] = useState(false)
   const role = admin ? 'admin' : testing ? 'test' : 'user'
+  const leaving = shown !== wanted
+  const dir = wanted === 'lista' ? 1 : -1
+
+  useEffect(() => {
+    if (shown === wanted) return undefined
+    const timer = window.setTimeout(() => { setShown(wanted); if (wanted === 'lista') setListaVisited(true) }, 240)
+    return () => window.clearTimeout(timer)
+  }, [wanted, shown])
+
   if (!authenticated) return <Navigate to="/autenticacao" state={{ from: '/links' }} replace />
-  if (admin && tab === 'lista') return <BucketList role={role} onBack={() => setParams({}, { replace: true, viewTransition: true })} onLogout={logout} />
+  const choose = key => setParams(key === 'lista' ? { aba: 'lista' } : {}, { replace: true })
+  const panel = key => `section-panel ${shown === key ? (leaving ? 'is-leaving' : 'is-entering') : ''}`
+
   return <main className="site-shell links-shell">
-    <header className="links-header"><Link className="text-button" to="/" onClick={event => { if (linksDirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
-    {admin && <div className="links-tabs" role="tablist" aria-label="Seções">
-      {[['links', 'Nossos links'], ['lista', 'Nossa lista']].map(([key, label]) => <button key={key} id={`tab-${key}`} role="tab" type="button" aria-selected={tab === key} onClick={() => setParams(key === 'lista' ? { aba: 'lista' } : {}, { replace: true, viewTransition: true })}>{label}</button>)}
-    </div>}
-    <div id="panel-links" role="tabpanel" aria-labelledby="tab-links" hidden={tab !== 'links'}><LinksPanel admin={admin} authenticated={authenticated} onDirty={setLinksDirty} /></div>
+    <header className="links-header"><Link className="text-button" to="/" viewTransition onClick={event => { if (linksDirty && !window.confirm('Sair sem salvar as alterações?')) event.preventDefault() }}><ArrowLeft size={16} />Voltar</Link><span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={logout}><LogOut size={14} aria-hidden="true" />sair</button></span></header>
+    {admin && <SectionSwitch options={OPTIONS} value={wanted} onChange={choose} label="Seções" />}
+    <div className="section-stage" style={{ '--dir': dir }}>
+      <div id="panel-links" role="tabpanel" aria-labelledby="tab-links" className={panel('links')} hidden={shown !== 'links'}><LinksPanel admin={admin} authenticated={authenticated} onDirty={setLinksDirty} /></div>
+      {admin && (listaVisited || wanted === 'lista') && <div id="panel-lista" role="tabpanel" aria-labelledby="tab-lista" className={panel('lista')} hidden={shown !== 'lista'}><BucketList role={role} /></div>}
+    </div>
   </main>
 }

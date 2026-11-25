@@ -4,17 +4,20 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './index.css'
 import './styles/call.css'
 import './styles/builder.css'
+import './styles/motion.css'
 import App from './App.jsx'
 import Auth from './Auth.jsx'
 import Planning from './Planning.jsx'
 import Admin from './Admin.jsx'
 import Links from './Links.jsx'
 import TestModeBar from './components/TestModeBar.jsx'
+import Presence from './components/Presence.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <TestModeBar />
+      <Presence />
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/autenticacao" element={<Auth />} />

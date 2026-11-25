@@ -32,7 +32,7 @@ function App() {
       : isAuthenticated
         ? '/planejamento'
         : '/autenticacao'
-    navigate(destination)
+    navigate(destination, { viewTransition: true })
   }
 
   const handleLogout = logout
@@ -65,7 +65,7 @@ function App() {
       </header>
 
       <div className="welcome-flower" aria-hidden="true"><svg viewBox="0 0 200 260" fill="none"><path d="M100 240V115M100 201C51 196 45 169 46 159C80 159 100 181 100 201ZM101 180C144 177 153 152 153 142C122 143 101 163 101 180Z" stroke="currentColor" strokeWidth="1.2"/><path d="M100 119C61 119 54 82 58 48C72 52 84 63 91 75L100 38L109 75C116 63 128 52 142 48C146 82 139 119 100 119Z" fill="#e9c9d2" stroke="currentColor" strokeWidth="1.2"/><path d="M100 119C83 103 85 88 91 75M100 119C117 103 115 88 109 75" stroke="currentColor" strokeWidth="1.2"/></svg></div>
-      <section className="page-transition m-auto w-full max-w-190 text-center" aria-labelledby="welcome-title">
+      <section className="stagger m-auto w-full max-w-190 text-center" aria-labelledby="welcome-title">
         <h1 id="welcome-title" className="mx-auto max-w-180 font-serif text-[clamp(3rem,8vw,6.7rem)] font-normal mb-8.5 leading-[.98] tracking-[-.06em] text-[#965365]">
           {mainMessage}
           <span className="text-[#bd7184]" aria-hidden="true">.</span>
@@ -74,7 +74,7 @@ function App() {
           {subtitle}
         </p>
 
-        <div className="welcome-actions">
+        <div className="welcome-actions stagger" style={{ '--stagger-base': '.3s' }}>
         <button
           className="primary-button inline-flex min-w-55.5 cursor-pointer items-center justify-between gap-8 rounded-full border border-[#bd7184] bg-[#bd7184] px-5.25 py-3.75 text-[.82rem] tracking-[.03em] text-[#fffaf9] transition duration-220 ease-in-out hover:-translate-y-1 hover:bg-transparent hover:text-[#965365] disabled:cursor-wait sm:max-w-67.5 sm:w-full"
           type="button"
@@ -85,7 +85,7 @@ function App() {
           <span className={isOpening ? 'animate-[arrow-pulse_.7s_ease-in-out_infinite] text-[1.15rem] leading-none' : 'text-[1.15rem] leading-none'} aria-hidden="true">↗</span>
         </button>
 
-        <button type="button" className="welcome-links-button" onClick={() => navigate('/links')}>Nossos links <span aria-hidden="true">↗</span></button>
+        <button type="button" className="welcome-links-button" onClick={() => navigate('/links', { viewTransition: true })}>Nossos links <span aria-hidden="true">↗</span></button>
         </div>
 
       </section>

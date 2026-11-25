@@ -219,3 +219,36 @@ test('lista: contagens por situação e categoria', () => {
   const result = counts([{ done: true, category: 'bobagem' }, { done: false, category: 'sonho' }, { done: false, category: 'sonho' }])
   assert.equal(result.done, 1); assert.equal(result.todo, 2); assert.equal(result.byCategory.sonho, 2)
 })
+
+import { fromDateInput, toDateInput } from '../src/data/bucketIdeas.js'
+test('lista: data editável ida e volta sem mudar de dia', () => {
+  for (const day of ['2026-01-01', '2026-11-14', '2026-12-31']) assert.equal(toDateInput(fromDateInput(day)), day)
+  assert.equal(fromDateInput(''), null)
+  assert.equal(fromDateInput('14/11/2026'), null)
+})
+
+import { cleanName, fromWire, isCursorVisible, prune, readableOn, readProfile, toWire, validColor } from '../src/lib/presence.js'
+test('cursores: perfil, cor legível e coordenadas entre telas', () => {
+  assert.equal(cleanName('  Ana   Clara  da Silva Santos Oliveira '), 'Ana Clara da Silva')
+  assert.equal(validColor('#bd7184'), true); assert.equal(validColor('red'), false)
+  assert.equal(readableOn('#31292d'), '#ffffff'); assert.equal(readableOn('#f1cdd5'), '#31292d')
+  const store = { getItem: () => JSON.stringify({ name: ' Gabi ', color: 'nope' }) }
+  assert.deepEqual(readProfile('user', store), { name: 'Gabi', color: '#bd7184' })
+  assert.deepEqual(readProfile('admin', { getItem: () => { throw new Error('x') } }), { name: 'Amor', color: '#3f8c87' })
+  const wire = toWire(720, 300, 500, 1440)
+  assert.deepEqual(wire, { x: 0.5, y: 800 })
+  assert.deepEqual(fromWire(wire, 390, 700), { left: 195, top: 100 })
+  assert.equal(toWire(-50, 0, 0, 100).x, 0); assert.equal(toWire(500, 0, 0, 100).x, 1)
+})
+test('cursores: visibilidade por rota, ociosidade e expiração', () => {
+  const now = 100000
+  const mouse = { path: '/links', x: 0.5, y: 10, kind: 'mouse', seen: now - 1000, moved: now - 10000 }
+  assert.equal(isCursorVisible(mouse, now, '/links'), true)
+  assert.equal(isCursorVisible(mouse, now, '/'), false)
+  assert.equal(isCursorVisible({ ...mouse, kind: 'touch' }, now, '/links'), false)
+  assert.equal(isCursorVisible({ ...mouse, moved: now - 30000 }, now, '/links'), false)
+  assert.equal(isCursorVisible({ ...mouse, x: undefined }, now, '/links'), false)
+  const peers = { a: mouse, b: { ...mouse, seen: now - 20000 } }
+  assert.deepEqual(Object.keys(prune(peers, now)), ['a'])
+  assert.equal(prune({ a: mouse }, now) !== undefined, true)
+})

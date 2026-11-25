@@ -43,8 +43,17 @@ O botão “Testar como usuário comum” no editor ativa uma simulação nesta 
 - O editor segue a paleta do site (rosa antigo e creme); o visual de cada call é livre e fica por conta do conteúdo.
 
 ## Nossa lista
-Página própria dentro da identidade do site (`/links?aba=lista`, só admin por enquanto).
-- Mesma paleta e tipografia do resto: creme, rosa antigo #bd7184, #965365, Georgia nos títulos e nas ideias, sistema nos controles, cabeçalho "Voltar / rebeca / sair" e círculos de fundo.
-- O que a diferencia: ideias em linhas com divisória (sem cartões), coluna lateral com categorias e contagens, e o marca-texto rosa que passa sobre o título quando a ideia é feita.
-- Sem selos, barras de progresso, emojis ou confete. Sortear destaca uma linha da própria lista; sugestões preenchem o campo de nova ideia.
-- Movimento: entrada em cascata da coluna e das linhas, check que se desenha, marca-texto que corre, saída com altura que recolhe ao excluir, sublinhados que deslizam e transição suave entre "Nossos links" e "Nossa lista" (View Transitions, quando o navegador suporta). Tudo é desligado com prefers-reduced-motion.
+Segunda escolha da página de links (`/links?aba=lista`, só admin por enquanto), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
+- Cabeçalho compacto (título pequeno, contagem e categorias na mesma linha); o conteúdo é o protagonista.
+- Campo "Eu quero…": categoria e nível só aparecem quando o campo está em uso; "Sugerir uma" digita a sugestão no campo.
+- "Para viver": ideias em duas colunas, sem cartões; "Fizemos" e "Editar" aparecem ao passar o mouse (sempre visíveis no toque).
+- "Fizemos" abre na própria linha: data (editável), como foi e fotos. A linha se recolhe e a ideia entra em "O que já vivemos", galeria com foto e frase; "Desfazer" devolve para a lista.
+- Sortear destaca a escolhida no lugar da frase "Sem saber por onde começar?".
+- Sem selos, barras de progresso, emojis ou confete.
+
+## Movimento
+- Tokens em `src/styles/motion.css`: curva `--ease-out`, entradas em cascata (`.stagger`), troca de página com View Transitions (navegadores sem suporte trocam direto), escolha entre seções com pílula deslizante, feedback de toque.
+- `prefers-reduced-motion` desliga animações e transições.
+
+## Cursores compartilhados
+Quem está logado (fora do modo de teste) vê o cursor das outras pessoas na mesma página, com nome e cor escolhidos no botão do canto inferior esquerdo. No celular aparece o ponto do toque. Usa Supabase Realtime (broadcast, sem tabela e sem guardar nada); se o Realtime estiver indisponível, o site funciona normalmente sem cursores.

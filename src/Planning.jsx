@@ -109,7 +109,7 @@ function Planning() {
   if (!planning) return <CallSplash />
   return <>
     {admin && <nav className="published-toolbar" aria-label="Visualização do administrador"><span>Versão salva · é assim que ela vê (as respostas dos testes não são salvas)</span><Link to="/admin">Voltar ao editor</Link></nav>}
-    <PlanningCanvas planning={planning} persistResponses={!admin} onBack={() => navigate('/')} onLogout={() => { logout(); navigate('/') }} />
+    <PlanningCanvas planning={planning} persistResponses={!admin} onBack={() => navigate('/', { viewTransition: true })} onLogout={() => { logout(); navigate('/') }} />
   </>
 }
 

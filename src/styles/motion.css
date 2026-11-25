@@ -1,0 +1,72 @@
+/* Movimento compartilhado do site: transições de rota, entradas em cascata, escolha entre seções e feedback de toque. */
+:root { --ease-out: cubic-bezier(.22, 1, .36, 1); }
+
+/* troca de página (View Transitions, quando o navegador suporta) */
+::view-transition-old(root) { animation: vt-out .28s ease both; }
+::view-transition-new(root) { animation: vt-in .6s .05s var(--ease-out) both; }
+@keyframes vt-out { to { opacity: 0; transform: scale(.994); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(12px); } }
+
+/* entradas em cascata: filhos diretos sobem um depois do outro */
+.stagger > * { animation: rise .95s var(--ease-out) both; }
+.stagger > :nth-child(1) { animation-delay: calc(var(--stagger-base, 0s) + .04s); }
+.stagger > :nth-child(2) { animation-delay: calc(var(--stagger-base, 0s) + .12s); }
+.stagger > :nth-child(3) { animation-delay: calc(var(--stagger-base, 0s) + .2s); }
+.stagger > :nth-child(4) { animation-delay: calc(var(--stagger-base, 0s) + .28s); }
+.stagger > :nth-child(5) { animation-delay: calc(var(--stagger-base, 0s) + .36s); }
+.stagger > :nth-child(6) { animation-delay: calc(var(--stagger-base, 0s) + .44s); }
+.stagger > :nth-child(n + 7) { animation-delay: calc(var(--stagger-base, 0s) + .5s); }
+.links-grid > * { animation: rise .9s var(--ease-out) both; }
+.links-grid > :nth-child(2) { animation-delay: .08s; } .links-grid > :nth-child(3) { animation-delay: .16s; } .links-grid > :nth-child(4) { animation-delay: .24s; } .links-grid > :nth-child(n + 5) { animation-delay: .3s; }
+.editor-card { animation: rise .6s var(--ease-out) both; }
+
+/* escolha entre "Nossos links" e "Nossa lista": a pílula desliza */
+.section-switch { position: relative; isolation: isolate; display: grid; grid-template-columns: repeat(var(--n, 2), minmax(132px, 1fr)); width: fit-content; margin: 38px auto 0; padding: 4px; border: 1px solid #e8dfe0; border-radius: 999px; background: #fffaf9b3; animation: rise .9s var(--ease-out) both; }
+.section-switch::before { content: ''; position: absolute; z-index: -1; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / var(--n, 2)); border-radius: 999px; background: #efe2e5; box-shadow: 0 6px 14px #bd71841f; transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .65s cubic-bezier(.34, 1.35, .5, 1); }
+.section-switch button { min-height: 40px; padding: 0 22px; border-radius: 999px; color: #88777c; font-size: 13px; cursor: pointer; white-space: nowrap; transition: color .4s, transform .3s var(--ease-out); }
+.section-switch button:hover { color: #965365; }
+.section-switch button:active { transform: scale(.97); }
+.section-switch button[aria-selected="true"] { color: #965365; }
+.section-switch button:focus-visible { outline-offset: 2px; }
+
+/* painéis das seções: o atual sai deslizando um pouco e o novo entra do lado oposto */
+.section-stage { --dir: 1; }
+.section-panel[hidden] { display: none; }
+.section-panel.is-entering { animation: panel-in .75s var(--ease-out) both; }
+.section-panel.is-leaving { animation: panel-out .24s ease both; pointer-events: none; }
+@keyframes panel-in { from { opacity: 0; transform: translateX(calc(var(--dir) * 36px)); } to { opacity: 1; transform: none; } }
+@keyframes panel-out { to { opacity: 0; transform: translateX(calc(var(--dir) * -24px)); } }
+.section-switch + .section-stage .links-content { margin-top: 36px; }
+
+/* feedback de toque e foco, igual em todo o site */
+.primary-button, .welcome-links-button, .studio-save, .secondary-button, .relationship-card { -webkit-tap-highlight-color: transparent; }
+.primary-button:active, .welcome-links-button:active, .studio-save:active, .secondary-button:active { transform: scale(.97); transition-duration: .1s; }
+.relationship-card:active { transform: scale(.985); }
+.text-button { transition: color .25s, transform .3s var(--ease-out); }
+.text-button:hover { color: #965365; }
+
+/* login */
+.editorial-panel { animation: rise 1s .15s var(--ease-out) both; }
+.soft-input { transition: border-color .3s, box-shadow .4s var(--ease-out), background-color .3s, transform .4s var(--ease-out); }
+.soft-input:focus { transform: translateY(-1px); }
+[role="alert"].field-error { animation: shake .5s var(--ease-out) both; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+/* início */
+.welcome-flower { animation: flower-sway 11s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+@keyframes flower-sway { from { transform: rotate(11deg); } to { transform: rotate(15deg) translateY(-6px); } }
+
+/* a call */
+.planning-canvas:not(.is-editing):not(.is-preview) { animation: appear .7s var(--ease-out) both; }
+.planning-canvas:not(.is-editing):not(.is-preview) .call-header { animation: rise .9s var(--ease-out) both; }
+.planning-canvas:not(.is-editing):not(.is-preview) .call-content { animation: rise 1s .12s var(--ease-out) both; }
+.call-header button { transition: opacity .25s, transform .3s var(--ease-out); }
+.call-header button:hover { opacity: .75; transform: translateX(-2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+  .stagger > *, .links-grid > *, .editor-card, .section-switch, .editorial-panel, .welcome-flower,
+  .planning-canvas, .planning-canvas .call-header, .planning-canvas .call-content, [role="alert"].field-error { animation: none !important; }
+  .section-switch::before { transition-duration: .01ms; }
+  .section-panel.is-entering, .section-panel.is-leaving { animation: none !important; }
+}

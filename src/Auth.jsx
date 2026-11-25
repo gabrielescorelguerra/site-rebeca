@@ -18,6 +18,7 @@ function Auth() {
   const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState('')
+  const [errorTick, setErrorTick] = useState(0)
   const { admin, authenticated: isAuthenticated } = useAccess()
 
   useEffect(() => {
@@ -35,7 +36,7 @@ function Auth() {
 
     if (birthDate !== AUTHORIZED_BIRTH_DATE
       || (normalizedName !== NORMAL_NAME && normalizedName !== ADMIN_NAME)) {
-      setError('Confira os dados e tente novamente.')
+      setError('Confira os dados e tente novamente.'); setErrorTick(tick => tick + 1)
       return
     }
 
@@ -43,7 +44,7 @@ function Auth() {
     localStorage.setItem(isAdmin ? ADMIN_AUTHENTICATED_KEY : AUTHENTICATED_KEY, 'true')
     setError('')
     notifyLogin()
-    navigate(destination || (isAdmin ? '/admin' : '/planejamento'))
+    navigate(destination || (isAdmin ? '/admin' : '/planejamento'), { viewTransition: true })
   }
 
   return (
@@ -57,7 +58,7 @@ function Auth() {
         <button
           className="inline-flex cursor-pointer items-center gap-2 text-[#88777c] transition-all duration-200 hover:-translate-x-1 hover:text-[#965365]"
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/', { viewTransition: true })}
         >
           <ArrowLeft className="size-4" strokeWidth={1.8} aria-hidden="true" />
           Voltar
@@ -116,7 +117,7 @@ function Auth() {
                 />
               </label>
 
-              {error && <p className="text-center text-sm text-[#965365]" role="alert">{error}</p>}
+              {error && <p key={errorTick} className="field-error text-center text-sm text-[#965365]" role="alert">{error}</p>}
 
               <button
                 className="primary-button w-full cursor-pointer rounded-full border border-[#bd7184] bg-[#bd7184] px-5 py-3.75 text-[.82rem] tracking-[.03em] text-[#fffaf9] transition duration-220 hover:-translate-y-1 hover:bg-transparent hover:text-[#965365]"

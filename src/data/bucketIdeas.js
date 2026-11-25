@@ -45,3 +45,15 @@ export function counts(items) {
   const done = items.filter(item => item.done).length
   return { total: items.length, done, todo: items.length - done, byCategory }
 }
+
+// Datas do formulário: "2026-11-14" <-> ISO ao meio-dia local, para não mudar de dia por fuso horário.
+export function toDateInput(iso) {
+  const d = iso ? new Date(iso) : new Date()
+  if (Number.isNaN(d.getTime())) return ''
+  const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+export function fromDateInput(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '')
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12).toISOString() : null
+}

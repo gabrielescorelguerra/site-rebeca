@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Heart, LogOut } from 'lucide-react'
 import { addItem, listItems, removeItem, updateItem } from '../data/bucketList'
-import { CATEGORIES, LEVELS, MAX_PHOTOS, categoryOf, counts, pickIdea, roulettePool } from '../data/bucketIdeas'
+import { CATEGORIES, LEVELS, MAX_PHOTOS, categoryOf, counts, fromDateInput, pickIdea, roulettePool, toDateInput } from '../data/bucketIdeas'
 import { uploadImage } from '../data/media'
 import '../styles/bucket.css'
 
-const dateLabel = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '') }
+const dateLabel = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '') }
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+const wait = ms => new Promise(resolve => window.setTimeout(resolve, ms))
+
+// Recolhe o elemento antes de ele sair da lista (altura vai a zero), para o resto subir com suavidade.
+async function collapse(id) {
+  const el = document.getElementById(id)
+  if (!el || reduceMotion()) return
+  el.style.height = `${el.offsetHeight}px`
+  void el.offsetHeight
+  el.classList.add('is-leaving')
+  await wait(400)
+}
 
 function Level({ value, onChange, label = 'Nível' }) {
   return <div className="bk-level" role="radiogroup" aria-label={label}>
@@ -16,74 +26,132 @@ function Level({ value, onChange, label = 'Nível' }) {
   </div>
 }
 
-function Item({ item, index, me, picked, flash, onSave, onToggle, onRemove, onError }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(item)
+function PhotoEditor({ photos, onChange, onError }) {
   const [uploading, setUploading] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const set = patch => setDraft(current => ({ ...current, ...patch }))
-  const author = item.author === me ? 'você' : me === 'admin' ? 'Rebeca' : 'seu amor'
-
-  const addPhotos = async files => {
-    const room = MAX_PHOTOS - draft.photos.length
+  const add = async files => {
+    const room = MAX_PHOTOS - photos.length
     if (!files.length || room <= 0) return
     setUploading(true)
     try {
       const urls = []
       for (const file of [...files].slice(0, room)) urls.push(await uploadImage(file))
-      setDraft(current => ({ ...current, photos: [...current.photos, ...urls].slice(0, MAX_PHOTOS) }))
+      onChange([...photos, ...urls].slice(0, MAX_PHOTOS))
     } catch (err) { onError(err.message || 'Não foi possível enviar a foto.') } finally { setUploading(false) }
   }
-  const save = async event => {
+  return <div className="bk-edit-photos">
+    {photos.map((url, index) => <span key={url}><img src={url} alt={`Foto ${index + 1}`} /><button type="button" aria-label={`Remover foto ${index + 1}`} onClick={() => onChange(photos.filter(photo => photo !== url))}>×</button></span>)}
+    {photos.length < MAX_PHOTOS && <label className="bk-upload">{uploading ? 'Enviando…' : '+ foto'}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={uploading} onChange={event => { add(event.target.files); event.target.value = '' }} /></label>}
+  </div>
+}
+
+// "Fizemos": quando, como foi e fotos, tudo opcional, na própria linha.
+function CaptureForm({ item, onSubmit, onCancel, onError }) {
+  const [draft, setDraft] = useState({ date: toDateInput(item.doneAt), memory: item.memory, photos: item.photos })
+  const [busy, setBusy] = useState(false)
+  const set = patch => setDraft(current => ({ ...current, ...patch }))
+  const submit = async event => {
+    event.preventDefault()
+    setBusy(true)
+    await onSubmit(item, { done: true, doneAt: fromDateInput(draft.date) || new Date().toISOString(), memory: draft.memory.trim(), photos: draft.photos })
+    setBusy(false)
+  }
+  return <form className="bk-edit bk-capture" onSubmit={submit}>
+    <h3 className="bk-name"><span>{item.title}</span></h3>
+    <label>Quando<input type="date" required max={toDateInput()} value={draft.date} onChange={event => set({ date: event.target.value })} /></label>
+    <label>Como foi?<textarea rows={2} maxLength={1000} autoFocus placeholder="Uma frase para lembrar depois" value={draft.memory} onChange={event => set({ memory: event.target.value })} /></label>
+    <PhotoEditor photos={draft.photos} onChange={photos => set({ photos })} onError={onError} />
+    <div className="bk-edit-actions">
+      <button type="submit" className="bk-primary" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+      <button type="button" className="bk-text-button" onClick={onCancel}>Agora não</button>
+    </div>
+  </form>
+}
+
+function EditForm({ item, onSubmit, onCancel, onRemove, onError }) {
+  const [draft, setDraft] = useState({ ...item, date: toDateInput(item.doneAt) })
+  const [busy, setBusy] = useState(false)
+  const set = patch => setDraft(current => ({ ...current, ...patch }))
+  const submit = async event => {
     event.preventDefault()
     if (!draft.title.trim()) { onError('Escreva um título para a ideia.'); return }
     setBusy(true)
-    const ok = await onSave(item.id, { title: draft.title.trim(), note: draft.note.trim(), category: draft.category, level: draft.level, memory: draft.memory.trim(), photos: draft.photos })
+    const patch = { title: draft.title.trim(), note: draft.note.trim(), category: draft.category, level: draft.level, memory: draft.memory.trim(), photos: draft.photos }
+    if (item.done) patch.doneAt = fromDateInput(draft.date) || item.doneAt
+    await onSubmit(item, patch)
     setBusy(false)
-    if (ok) setEditing(false)
   }
+  return <form className="bk-edit" onSubmit={submit}>
+    <label>Título<input required maxLength={140} value={draft.title} onChange={event => set({ title: event.target.value })} /></label>
+    <label>Detalhes<textarea rows={2} maxLength={600} value={draft.note} onChange={event => set({ note: event.target.value })} /></label>
+    {item.done && <label>Quando aconteceu<input type="date" required max={toDateInput()} value={draft.date} onChange={event => set({ date: event.target.value })} /></label>}
+    <label>Lembrança<textarea rows={2} maxLength={1000} placeholder={item.done ? 'Como foi?' : 'Para escrever depois de fazer'} value={draft.memory} onChange={event => set({ memory: event.target.value })} /></label>
+    <label>Categoria<select value={draft.category} onChange={event => set({ category: event.target.value })}>{CATEGORIES.map(category => <option key={category.key} value={category.key}>{category.label}</option>)}</select></label>
+    <Level value={draft.level} onChange={level => set({ level })} />
+    <PhotoEditor photos={draft.photos} onChange={photos => set({ photos })} onError={onError} />
+    <div className="bk-edit-actions">
+      <button type="submit" className="bk-primary" disabled={busy}>{busy ? 'Salvando…' : 'Salvar'}</button>
+      <button type="button" className="bk-text-button" onClick={onCancel}>Cancelar</button>
+      <button type="button" className="bk-text-button danger" onClick={() => { if (window.confirm(`Excluir “${item.title}”?`)) onRemove(item) }}>Excluir</button>
+    </div>
+  </form>
+}
 
-  return <li id={`item-${item.id}`} style={{ '--i': Math.min(index, 10) }} className={`bk-item ${item.done ? 'is-done' : ''} ${picked ? 'is-picked' : ''} ${flash ? 'is-flash' : ''}`}>
-    <button type="button" className="bk-check" aria-pressed={item.done} aria-label={`${item.done ? 'Desmarcar' : 'Marcar como feita'}: ${item.title}`} onClick={() => onToggle(item)}>
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path pathLength="1" d="M3 8.5l3.2 3L13 4.5" /></svg>
-    </button>
-    {!editing ? <div className="bk-body">
-      <h3 className="bk-name"><span>{item.title}</span></h3>
-      {item.note && <p className="bk-note">{item.note}</p>}
-      <p className="bk-meta">{categoryOf(item.category).label} · nível {item.level} de 5 · {author}{item.done && item.doneAt ? ` · feita em ${dateLabel(item.doneAt)}` : ''}</p>
-      {item.memory && <p className="bk-memory">{item.memory}</p>}
-      {item.photos.length > 0 && <ul className="bk-photos">{item.photos.map((url, index) => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={`Foto ${index + 1} de ${item.title}`} loading="lazy" /><span className="sr-only"> (abre em nova aba)</span></a></li>)}</ul>}
-    </div> : <form className="bk-body bk-edit" onSubmit={save}>
-      <label>Título<input required maxLength={140} value={draft.title} onChange={event => set({ title: event.target.value })} /></label>
-      <label>Detalhes<textarea rows={2} maxLength={600} value={draft.note} onChange={event => set({ note: event.target.value })} /></label>
-      <label>Lembrança<textarea rows={2} maxLength={1000} placeholder={item.done ? 'Como foi?' : 'Para escrever depois de fazer'} value={draft.memory} onChange={event => set({ memory: event.target.value })} /></label>
-      <label>Categoria<select value={draft.category} onChange={event => set({ category: event.target.value })}>{CATEGORIES.map(category => <option key={category.key} value={category.key}>{category.label}</option>)}</select></label>
-      <Level value={draft.level} onChange={level => set({ level })} />
-      <div className="bk-edit-photos">
-        {draft.photos.map((url, index) => <span key={url}><img src={url} alt={`Foto ${index + 1}`} /><button type="button" aria-label={`Remover foto ${index + 1}`} onClick={() => set({ photos: draft.photos.filter(photo => photo !== url) })}>×</button></span>)}
-        {draft.photos.length < MAX_PHOTOS && <label className="bk-upload">{uploading ? 'Enviando…' : '+ foto'}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={uploading} onChange={event => { addPhotos(event.target.files); event.target.value = '' }} /></label>}
-      </div>
-      <div className="bk-edit-actions">
-        <button type="submit" className="bk-primary" disabled={busy || uploading}>{busy ? 'Salvando…' : 'Salvar'}</button>
-        <button type="button" className="bk-text-button" onClick={() => setEditing(false)}>Cancelar</button>
-        <button type="button" className="bk-text-button danger" onClick={() => { if (window.confirm(`Excluir “${item.title}”?`)) onRemove(item) }}>Excluir</button>
-      </div>
-    </form>}
-    {!editing && <button type="button" className="bk-edit-link" aria-label={`Editar ${item.title}`} onClick={() => { setDraft(item); setEditing(true) }}>Editar</button>}
+const Meta = ({ item, who }) => <p className="bk-meta">{categoryOf(item.category).label}<span className="bk-dots" role="img" aria-label={`nível ${item.level} de 5`}>{[1, 2, 3, 4, 5].map(n => <i key={n} className={n <= item.level ? 'on' : ''} />)}</span>{who}</p>
+
+function Idea({ item, index, who, mode, setMode, picked, flash, handlers }) {
+  const close = () => setMode(null)
+  return <li id={`idea-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-idea ${index === 0 ? 'is-lead' : ''} ${picked ? 'is-picked' : ''} ${flash ? 'is-flash' : ''} ${mode ? 'is-open' : ''}`}>
+    {mode === 'capture' ? <CaptureForm item={item} onSubmit={handlers.finish} onCancel={close} onError={handlers.error} />
+      : mode === 'edit' ? <EditForm item={item} onSubmit={async (it, patch) => { if (await handlers.save(it.id, patch)) close() }} onCancel={close} onRemove={handlers.remove} onError={handlers.error} />
+        : <>
+          <div className="bk-body">
+            <h3 className="bk-name">{item.title}</h3>
+            {item.note && <p className="bk-note">{item.note}</p>}
+            <Meta item={item} who={who} />
+            {item.photos.length > 0 && <ul className="bk-thumbs">{item.photos.map((url, i) => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={`Foto ${i + 1} de ${item.title}`} loading="lazy" /><span className="sr-only"> (abre em nova aba)</span></a></li>)}</ul>}
+          </div>
+          <div className="bk-actions">
+            <button type="button" className="bk-pill" aria-label={`Fizemos: ${item.title}`} onClick={() => setMode({ id: item.id, kind: 'capture' })}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" /></svg>Fizemos</button>
+            <button type="button" className="bk-edit-link" aria-label={`Editar ${item.title}`} onClick={() => setMode({ id: item.id, kind: 'edit' })}>Editar</button>
+          </div>
+        </>}
   </li>
 }
 
-export default function BucketList({ role, onBack, onLogout }) {
+function Memory({ item, index, who, mode, setMode, arriving, handlers }) {
+  const span = ['wide', 'tall', 'tall', 'mid', 'mid'][index % 5]
+  const [main, ...rest] = item.photos
+  return <li id={`memory-${item.id}`} style={{ '--i': Math.min(index, 8) }} className={`bk-memory-tile ${main ? `is-${span}` : 'is-text'} ${arriving ? 'is-arriving' : ''} ${mode ? 'is-open' : ''}`}>
+    {mode === 'edit' ? <EditForm item={item} onSubmit={async (it, patch) => { if (await handlers.save(it.id, patch)) setMode(null) }} onCancel={() => setMode(null)} onRemove={handlers.remove} onError={handlers.error} /> : <>
+      {main && <a className="bk-photo" href={main} target="_blank" rel="noopener noreferrer"><img src={main} alt={`Foto de ${item.title}`} loading="lazy" /><span className="sr-only"> (abre em nova aba)</span></a>}
+      {!main && item.memory && <blockquote className="bk-quote">{item.memory}</blockquote>}
+      <h3 className="bk-name">{item.title}</h3>
+      <p className="bk-meta">{dateLabel(item.doneAt)} · {categoryOf(item.category).label} · {who}</p>
+      {main && item.memory && <p className="bk-quote-small">“{item.memory}”</p>}
+      {rest.length > 0 && <ul className="bk-thumbs">{rest.map((url, i) => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={`Foto ${i + 2} de ${item.title}`} loading="lazy" /></a></li>)}</ul>}
+      <div className="bk-actions inline">
+        <button type="button" className="bk-edit-link" aria-label={`Editar ${item.title}`} onClick={() => setMode({ id: item.id, kind: 'edit' })}>Editar</button>
+        <button type="button" className="bk-edit-link" aria-label={`Voltar para a lista: ${item.title}`} onClick={() => handlers.undo(item)}>Desfazer</button>
+      </div>
+    </>}
+  </li>
+}
+
+export default function BucketList({ role }) {
   const me = role === 'admin' ? 'admin' : 'user'
+  const who = item => (item.author === me ? 'ideia sua' : me === 'admin' ? 'ideia dela' : 'ideia do seu amor')
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [view, setView] = useState({ category: '', status: 'todo' })
+  const [category, setCategory] = useState('')
   const [form, setForm] = useState({ title: '', category: 'bobagem', level: 2 })
   const [adding, setAdding] = useState(false)
   const [lastIdea, setLastIdea] = useState(null)
-  const [draw, setDraw] = useState({ running: false, flash: null, chosen: null, maxLevel: 5 })
+  const [active, setActive] = useState(null)
+  const [arrived, setArrived] = useState(null)
+  const [draw, setDraw] = useState({ running: false, scan: null, chosen: null, maxLevel: 5 })
   const timer = useRef(null)
+  const typer = useRef(null)
   const noticeTimer = useRef(null)
 
   const load = useCallback(() => listItems().then(list => { setItems(list); setError('') }).catch(err => { console.error(err); setError('Não foi possível carregar a lista. Confira se a tabela bucket_items existe no Supabase.'); setItems(current => current ?? []) }), [])
@@ -91,7 +159,7 @@ export default function BucketList({ role, onBack, onLogout }) {
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') load() }
     document.addEventListener('visibilitychange', onVisible)
-    return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearTimeout(noticeTimer.current) }
+    return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearInterval(typer.current); window.clearTimeout(noticeTimer.current) }
   }, [load])
 
   const flash = text => { setNotice(text); window.clearTimeout(noticeTimer.current); noticeTimer.current = window.setTimeout(() => setNotice(''), 4000) }
@@ -105,113 +173,125 @@ export default function BucketList({ role, onBack, onLogout }) {
   const submit = async event => {
     event.preventDefault()
     if (!form.title.trim()) { fail('Escreva a ideia primeiro.'); return }
-    if (await create(form)) { setForm(current => ({ ...current, title: '' })); setLastIdea(null); setView(current => (current.status === 'done' ? { ...current, status: 'todo' } : current)) }
+    window.clearInterval(typer.current)
+    if (await create(form)) { setForm(current => ({ ...current, title: '' })); setLastIdea(null) }
   }
+  // A sugestão "é digitada" no campo, letra a letra, e continua editável.
   const suggest = () => {
     const idea = pickIdea(items || [], lastIdea)
     if (!idea) { flash('Vocês já usaram todas as sugestões. Agora é por conta de vocês.'); return }
-    setLastIdea(idea.id); setForm({ title: idea.text, category: idea.category, level: idea.level })
+    window.clearInterval(typer.current)
+    setLastIdea(idea.id); setForm({ title: '', category: idea.category, level: idea.level })
+    if (reduceMotion()) { setForm({ title: idea.text, category: idea.category, level: idea.level }); return }
+    let n = 0
+    typer.current = window.setInterval(() => { n += 2; setForm(current => ({ ...current, title: idea.text.slice(0, n) })); if (n >= idea.text.length) window.clearInterval(typer.current) }, 22)
   }
+
   const save = async (id, patch) => {
     try { const updated = await updateItem(id, patch); setItems(list => list.map(item => (item.id === id ? updated : item))); setError(''); flash('Salvo.'); return true }
     catch (err) { console.error(err); fail('Não foi possível salvar. Tente de novo.'); return false }
   }
-  const toggle = async item => {
-    const done = !item.done
-    if (await save(item.id, { done, doneAt: done ? new Date().toISOString() : null }) && done) { flash('Feita! Dá para editar e guardar a lembrança e as fotos.'); setDraw(current => (current.chosen?.id === item.id ? { ...current, chosen: null } : current)) }
+  // Fizemos: a linha se recolhe e a ideia reaparece na galeria, com um halo.
+  const finish = async (item, patch) => {
+    try {
+      const updated = await updateItem(item.id, patch)
+      setActive(null); setDraw(current => (current.chosen?.id === item.id ? { ...current, chosen: null } : current))
+      await collapse(`idea-${item.id}`)
+      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); setArrived(item.id); setError('')
+      window.setTimeout(() => setArrived(current => (current === item.id ? null : current)), 2200)
+      window.setTimeout(() => document.getElementById(`memory-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 120)
+      flash('Guardada em “O que já vivemos”.')
+    } catch (err) { console.error(err); fail('Não foi possível guardar. Tente de novo.') }
+  }
+  const undo = async item => {
+    try {
+      const updated = await updateItem(item.id, { done: false, doneAt: null })
+      await collapse(`memory-${item.id}`)
+      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); flash('Voltou para “Para viver”.')
+    } catch (err) { console.error(err); fail('Não foi possível desfazer. Tente de novo.') }
   }
   const remove = async item => {
     try {
-      await removeItem(item.id)
-      const el = document.getElementById(`item-${item.id}`)
-      if (el && !reduceMotion()) { el.style.height = `${el.offsetHeight}px`; void el.offsetHeight; el.classList.add('is-leaving'); await new Promise(resolve => window.setTimeout(resolve, 380)) }
+      await removeItem(item.id); setActive(null)
+      await collapse(item.done ? `memory-${item.id}` : `idea-${item.id}`)
       setItems(list => list.filter(entry => entry.id !== item.id)); flash('Ideia removida.')
     } catch (err) { console.error(err); fail('Não foi possível excluir. Tente de novo.') }
   }
-
-  const pool = roulettePool(items || [], { maxLevel: draw.maxLevel, category: view.category })
-  const land = pick => {
-    setDraw(current => ({ ...current, running: false, flash: null, chosen: pick }))
-    window.setTimeout(() => document.getElementById(`item-${pick.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 60)
-  }
-  const drawNow = () => {
-    if (draw.running || !pool.length) return
-    window.clearInterval(timer.current)
-    setView(current => (current.status === 'done' ? { ...current, status: 'todo' } : current))
-    const pick = pool[Math.floor(Math.random() * pool.length)]
-    if (reduceMotion()) { land(pick); return }
-    setDraw(current => ({ ...current, running: true, chosen: null }))
-    let ticks = 0
-    timer.current = window.setInterval(() => {
-      ticks += 1
-      if (ticks >= 18) { window.clearInterval(timer.current); land(pick) } else setDraw(current => ({ ...current, flash: pool[ticks % pool.length].id }))
-    }, 90)
-  }
+  const handlers = { save, finish, undo, remove, error: fail }
 
   const all = items || []
   const total = counts(all)
-  const inStatus = all.filter(item => view.status === 'all' || (view.status === 'done') === item.done)
-  const byCategory = counts(inStatus).byCategory
-  const visible = inStatus.filter(item => !view.category || item.category === view.category).sort((a, b) => Number(a.done) - Number(b.done))
-  const sentence = items === null ? 'Abrindo a lista…' : `${total.todo} para fazer, ${total.done} ${total.done === 1 ? 'feita' : 'feitas'}.`
+  const inCategory = all.filter(item => !category || item.category === category)
+  const ideas = inCategory.filter(item => !item.done)
+  const lived = inCategory.filter(item => item.done).sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt))
+  const pool = roulettePool(all, { maxLevel: draw.maxLevel, category })
 
-  return <main className="bk-page site-shell">
-    <div className="ambient-orb bk-orb bk-orb-a" aria-hidden="true" />
-    <div className="ambient-orb bk-orb bk-orb-b" aria-hidden="true" />
-    <header className="links-header bk-header">
-      <button type="button" className="text-button" onClick={onBack}><ArrowLeft size={16} />Nossos links</button>
-      <span>rebeca <Heart size={16} fill="currentColor" aria-hidden="true" /><button type="button" className="text-button" onClick={onLogout}><LogOut size={14} aria-hidden="true" />sair</button></span>
+  const land = pick => setDraw(current => ({ ...current, running: false, scan: null, chosen: pick }))
+  const drawNow = () => {
+    if (draw.running || !pool.length) return
+    window.clearInterval(timer.current)
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    if (reduceMotion()) { land(pick); return }
+    setDraw(current => ({ ...current, running: true, chosen: null, scan: pool[0].title }))
+    let ticks = 0
+    timer.current = window.setInterval(() => {
+      ticks += 1
+      if (ticks >= 16) { window.clearInterval(timer.current); land(pick) } else setDraw(current => ({ ...current, scan: pool[ticks % pool.length].title }))
+    }, 85)
+  }
+  const openCapture = item => { setActive({ id: item.id, kind: 'capture' }); window.setTimeout(() => document.getElementById(`idea-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 60) }
+
+  const open = form.title.trim().length > 0
+  const sentence = items === null ? 'Abrindo a lista…' : `${total.todo} para viver · ${total.done} ${total.done === 1 ? 'vivida' : 'vividas'}`
+
+  return <section className="bk" aria-label="Nossa lista">
+    <header className="bk-mast">
+      <div className="bk-title"><h1>Nossa lista<span>.</span></h1><p className="bk-count" aria-live="polite">{sentence}</p></div>
+      <nav aria-label="Categorias"><ul className="bk-nav">
+        <li><button type="button" aria-current={!category} onClick={() => setCategory('')}>Tudo</button></li>
+        {CATEGORIES.map(entry => <li key={entry.key}><button type="button" aria-current={category === entry.key} onClick={() => setCategory(entry.key)}>{entry.label}</button></li>)}
+      </ul></nav>
     </header>
-    <div className="bk-layout">
-    <aside className="bk-side">
-      <div className="bk-side-main">
-        <h1>Nossa lista<span>.</span></h1>
-        <p className="bk-count" aria-live="polite">{sentence}</p>
-        <nav aria-label="Categorias">
-          <ul className="bk-nav">
-            <li><button type="button" aria-current={!view.category} onClick={() => setView({ ...view, category: '' })}><span>Tudo</span><b>{inStatus.length}</b></button></li>
-            {CATEGORIES.map(category => <li key={category.key}><button type="button" aria-current={view.category === category.key} onClick={() => setView({ ...view, category: category.key })}><span>{category.label}</span><b>{byCategory[category.key]}</b></button></li>)}
-          </ul>
-        </nav>
-        <div className="bk-draw">
-          <button type="button" className="bk-draw-button" disabled={draw.running || !pool.length} onClick={drawNow}>{draw.running ? 'Sorteando…' : draw.chosen ? 'Sortear outra' : 'Sortear uma para hoje'}<span aria-hidden="true">→</span></button>
-          <label>até o nível
-            <select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value), chosen: null })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select>
-          </label>
-          {items !== null && !pool.length && <p>Nenhuma ideia pendente com esse filtro.</p>}
-        </div>
+
+    <form className={`bk-compose ${open ? 'is-open' : ''}`} onSubmit={submit}>
+      <div className="bk-field">
+        <label htmlFor="bk-new" className="sr-only">Nova ideia</label>
+        <input id="bk-new" className="bk-compose-input" maxLength={140} autoComplete="off" placeholder="Eu quero…" value={form.title} onChange={event => { window.clearInterval(typer.current); setForm({ ...form, title: event.target.value }) }} />
+        <button type="button" className="bk-text-button bk-suggest" onClick={suggest}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>Sugerir uma</button>
       </div>
-    </aside>
-
-    <section className="bk-main" aria-labelledby="bk-compose-title">
-      <form className="bk-compose" onSubmit={submit}>
-        <label id="bk-compose-title" htmlFor="bk-new" className="sr-only">Nova ideia</label>
-        <input id="bk-new" className="bk-compose-input" maxLength={140} autoComplete="off" placeholder="Eu quero…" value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} />
-        <div className="bk-compose-row">
-          <div className="bk-cats" role="radiogroup" aria-label="Categoria">
-            {CATEGORIES.map(category => <button key={category.key} type="button" role="radio" aria-checked={form.category === category.key} onClick={() => setForm({ ...form, category: category.key })}>{category.label}</button>)}
-          </div>
+      <div className="bk-controls"><div className="bk-controls-inner">
+        <div className="bk-cats" role="radiogroup" aria-label="Categoria">
+          {CATEGORIES.map(entry => <button key={entry.key} type="button" role="radio" aria-checked={form.category === entry.key} onClick={() => setForm({ ...form, category: entry.key })}>{entry.label}</button>)}
         </div>
-        <div className="bk-compose-row">
-          <Level value={form.level} onChange={level => setForm({ ...form, level })} />
-          <button type="button" className="bk-text-button" onClick={suggest}>Sem ideia? Sugerir uma</button>
-          <button type="submit" className="bk-primary" disabled={adding}>{adding ? 'Adicionando…' : 'Adicionar'}</button>
-        </div>
-      </form>
+        <div className="bk-compose-row"><Level value={form.level} onChange={level => setForm({ ...form, level })} /><button type="submit" className="bk-primary" disabled={adding}>{adding ? 'Adicionando…' : 'Adicionar'}</button></div>
+      </div></div>
+    </form>
+    <p role="status" className="bk-status" key={notice}>{notice}</p>
+    {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
 
-      <p role="status" className="bk-status" key={notice}>{notice}</p>
-      {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
-
-      <div className="bk-toolbar" role="group" aria-label="Situação">
-        {[['todo', 'Para fazer', total.todo], ['done', 'Feitas', total.done], ['all', 'Todas', total.total]].map(([key, label, n]) => <button key={key} type="button" aria-pressed={view.status === key} onClick={() => { setView({ ...view, status: key }); setDraw(current => ({ ...current, chosen: null })) }}>{label} <b>{n}</b></button>)}
-      </div>
-
-      {draw.chosen && <div className="bk-pick" role="status"><p><span>Hoje</span>{draw.chosen.title}</p><button type="button" className="bk-text-button" onClick={() => toggle(draw.chosen)}>Já fizemos</button><button type="button" className="bk-text-button" onClick={() => setDraw({ ...draw, chosen: null })}>Limpar</button></div>}
-
-      {items === null ? <p className="bk-empty">Abrindo a lista…</p>
-        : visible.length ? <ul className={`bk-list ${draw.chosen ? 'has-pick' : ''}`}>{visible.map((item, index) => <Item key={item.id} item={item} index={index} me={me} picked={draw.chosen?.id === item.id} flash={draw.flash === item.id} onSave={save} onToggle={toggle} onRemove={remove} onError={fail} />)}</ul>
-          : <p className="bk-empty">{all.length ? 'Nada por aqui com esse filtro.' : 'Ainda não tem nada. Escreva a primeira ideia acima.'}</p>}
-    </section>
+    <div className="bk-today">
+      {draw.chosen ? <div className="bk-hero" role="status">
+        <span className="bk-eyebrow">Hoje</span>
+        <h2>{draw.chosen.title}</h2>
+        <Meta item={draw.chosen} who={who(draw.chosen)} />
+        <div className="bk-hero-actions"><button type="button" className="bk-primary" onClick={() => openCapture(draw.chosen)}>Fizemos</button><button type="button" className="bk-text-button" onClick={drawNow}>Sortear outra</button><button type="button" className="bk-text-button" onClick={() => setDraw({ ...draw, chosen: null })}>Fechar</button></div>
+      </div> : <div className="bk-strip">
+        {draw.running ? <p className="bk-scan" key={draw.scan} aria-hidden="true">{draw.scan}</p> : <p><em>Sem saber por onde começar?</em><button type="button" className="bk-draw" disabled={!pool.length} onClick={drawNow}>Sortear uma para hoje<span aria-hidden="true">→</span></button></p>}
+        <label className="bk-level-limit">até o nível<select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value) })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select></label>
+      </div>}
     </div>
-  </main>
+
+    <section aria-labelledby="bk-todo-title">
+      <h2 id="bk-todo-title" className="bk-section">Para viver <small>{ideas.length}</small></h2>
+      {items === null ? <p className="bk-empty">Abrindo a lista…</p>
+        : ideas.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{ideas.map((item, index) => <Idea key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} handlers={handlers} />)}</ul>
+          : <p className="bk-empty">{all.length ? 'Nada para viver com esse filtro.' : 'Ainda não tem nada. Escreva a primeira ideia acima.'}</p>}
+    </section>
+
+    <section aria-labelledby="bk-lived-title" className="bk-lived">
+      <h2 id="bk-lived-title" className="bk-section big">O que já vivemos <small>{lived.length}</small></h2>
+      {lived.length ? <ul className="bk-gallery">{lived.map((item, index) => <Memory key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} arriving={arrived === item.id} handlers={handlers} />)}</ul>
+        : items !== null && <p className="bk-empty soft">Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
+    </section>
+  </section>
 }
