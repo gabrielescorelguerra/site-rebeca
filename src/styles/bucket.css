@@ -1,3 +1,6 @@
+/* Caveat (SIL Open Font License), servida pelo próprio site para a escrita do caderno não depender do Google Fonts. */
+@font-face { font-family: 'Caveat Caderno'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/caveat-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Caveat Caderno'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/caveat-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 /* Caderno de sonhos: a bucket list do casal como um caderno de verdade (creme, rosa antigo, Georgia). */
 .bk {
   --ink: #31292d; --mute: #88777c; --soft: #a09095; --line: #e8dfe0; --rose: #bd7184; --deep: #965365; --mark: #f1cdd5; --wash: #f6e8eb; --ease: cubic-bezier(.22, 1, .36, 1);
@@ -336,3 +339,143 @@ body.bk-dragging, body.bk-dragging * { user-select: none !important; -webkit-use
   .bk *, .bk *::before, .bk *::after, .bk-book { animation: none !important; transition-duration: .01ms !important; }
   .bk-capture .bk-name span { background-size: 100% 42%; }
 }
+
+/* =====================================================================
+   Papel e caneta: dentro do caderno nada parece site. Escrita à mão (Caveat)
+   em tinta, papel pautado, traços desenhados, nada selecionável.
+   ===================================================================== */
+.bk-book { --hand: 'Caveat Caderno', 'Caveat', 'Segoe Print', 'Bradley Hand', cursive; --ink-pen: #3b3346; --pencil: #9a8d94; --rule: #e6dce1; --lh: 30px;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.bk-book input, .bk-book textarea { user-select: text; -webkit-user-select: text; }
+.bk-book img { -webkit-user-drag: none; }
+.bk-book.is-wide .bk-left, .bk-book.is-wide .bk-right { cursor: grab; }
+.bk-book.is-pulling, .bk-book.is-pulling * { cursor: grabbing !important; }
+.bk-book :focus-visible { outline: 1.5px dashed var(--deep); outline-offset: 3px; border-radius: 4px; }
+
+/* papel pautado: as linhas rolam junto com o que está escrito */
+.bk-page-body { background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--lh) - 6px), var(--rule) calc(var(--lh) - 6px) calc(var(--lh) - 5px), transparent calc(var(--lh) - 5px) var(--lh)); background-attachment: local; }
+.bk-page-head { border-bottom: 0; padding-bottom: 6px; }
+.bk-page-head h2 { font: italic 36px/1.1 Georgia, serif; }
+.bk-page-head small, .bk-year-head small { font: 19px/1 var(--hand); color: var(--pencil); }
+.bk-page-head.small h2 { font: 30px/1.1 var(--hand); color: var(--deep); letter-spacing: 0; }
+.bk-filter select { font: 20px var(--hand); color: var(--pencil); }
+
+/* cada ideia ocupa linhas inteiras do papel */
+.bk-idea { gap: 10px; padding: 0; border-bottom: 0; animation: bk-ink-in .9s calc(var(--i, 0) * 70ms) var(--ease) both; }
+.bk-idea.is-picked, .bk-idea:hover, .bk-idea:focus-within { background: none; box-shadow: none; }
+.bk-ideas.has-pick .bk-idea:not(.is-picked) { opacity: .35; }
+.bk-idea.is-picked .bk-name { background: linear-gradient(transparent 55%, #f4d7de 55% 88%, transparent 88%); }
+.bk-name { font: 500 27px/var(--lh) var(--hand); letter-spacing: 0; color: var(--ink-pen); }
+.bk-note { margin: 0; font: 20px/var(--lh) var(--hand); color: #75696f; }
+.bk-meta { margin: 0; font: 18px/var(--lh) var(--hand); color: var(--pencil); }
+.bk-quote-small { margin: 0; font: 22px/var(--lh) var(--hand); color: #5b4752; }
+.bk-actions { align-self: flex-start; padding-top: 2px; }
+.bk-actions.inline { margin: 0; }
+.bk-edit-link { font: 19px/var(--lh) var(--hand); color: var(--pencil); text-decoration: none; padding: 0; }
+.bk-edit-link:hover { color: var(--deep); }
+@keyframes bk-ink-in { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+
+/* a bolinha desenhada e o visto de caneta */
+.bk-check { width: 30px; height: 30px; margin: 0; border: 0; border-radius: 0; background: none; transform: none; }
+.bk-check svg { width: 30px; height: 30px; overflow: visible; }
+.bk-check .bk-ring { fill: none; stroke: #b58d99; stroke-width: 1.6; stroke-linecap: round; }
+.bk-check .bk-tick { fill: none; stroke: var(--deep); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .5s var(--ease); }
+.bk-check:hover { background: none; transform: rotate(-6deg); }
+.bk-check:hover .bk-tick { stroke-dashoffset: .6; stroke: #c99aa7; }
+.bk-check.is-done { background: none; }
+.bk-check.is-done .bk-tick { stroke-dashoffset: 0; stroke: var(--deep); }
+.bk-check.is-done:hover { background: none; }
+.bk-check.is-done:hover .bk-tick { stroke: #c99aa7; }
+
+/* riscado à mão, não text-decoration */
+.bk-moment .bk-name { color: #6d5d66; }
+.bk-strike { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='12' viewBox='0 0 120 12'%3E%3Cpath d='M1 7.5c12-2.6 22 1.4 34-.6s23-2.6 35-.2 24 1.8 34-.4 13-.6 15-.2' fill='none' stroke='%23c4687f' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x 0 58% / 120px 12px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.bk-moment.is-arriving { background: none; box-shadow: none; }
+.bk-moment.is-arriving .bk-strike { animation: bk-strike-draw 1.2s .3s var(--ease) both; }
+@keyframes bk-strike-draw { from { background-size: 0 12px; } to { background-size: 120px 12px; } }
+.bk-moment { padding: 0 0 var(--lh); gap: 10px; }
+
+/* a polaroid é um objeto: toque para pegar na mão */
+.bk-polaroid { padding: 5px 5px 15px; border: 0; cursor: zoom-in; }
+.bk-thumbs button { padding: 3px 3px 8px; background: #fff; box-shadow: 0 3px 8px #96536522; transform: rotate(-3deg); transition: transform .3s var(--ease); }
+.bk-thumbs li:nth-child(even) button { transform: rotate(3deg); }
+.bk-thumbs button:hover { transform: rotate(0) scale(1.08); }
+.bk-thumbs img { width: 40px; height: 40px; border-radius: 0; }
+
+/* "Eu quero…" escrito na linha */
+.bk-compose { padding: 0; }
+.bk-field { border-bottom: 0; }
+.bk-compose-input { padding: 0; font: 500 27px/var(--lh) var(--hand); color: var(--ink-pen); }
+.bk-compose-input::placeholder { color: #c7b6bc; font-style: normal; }
+.bk-suggest { font: 20px var(--hand); color: var(--pencil); }
+.bk-cats { padding-top: 4px; gap: 2px 16px; }
+.bk-cats button { font: 21px/var(--lh) var(--hand); padding: 0; }
+.bk-cats button::after { height: 2px; bottom: 4px; border-radius: 2px; background: #e8b7c3; transform-origin: left; }
+.bk-compose-row { padding: 2px 0 8px; }
+.bk-field-name, .bk-level-name { font: 19px var(--hand); }
+
+/* botões dentro do caderno: tinta, borda desenhada à mão */
+.bk-book .bk-primary { margin-left: 0; padding: 4px 18px; border: 1.8px solid var(--deep); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; background: none; box-shadow: none; color: var(--deep); font: 600 22px/1.2 var(--hand); }
+.bk-book .bk-primary:hover:not(:disabled) { background: #f6e4e9; transform: rotate(-1.5deg); box-shadow: none; }
+.bk-book .bk-text-button { font: 20px var(--hand); text-decoration: none; color: var(--pencil); }
+.bk-book .bk-text-button:hover { color: var(--deep); }
+.bk-book .bk-text-button.danger { color: #b8566c; }
+.bk-book .bk-edit label { font: 18px var(--hand); color: var(--pencil); gap: 0; }
+.bk-book .bk-edit input, .bk-book .bk-edit textarea, .bk-book .bk-edit select { font: 500 24px/var(--lh) var(--hand); color: var(--ink-pen); border-bottom: 1px dashed #d8c3ca; padding: 0; }
+.bk-book .bk-edit { gap: 6px; padding: 4px 0 var(--lh); }
+.bk-book .bk-upload { font: 20px var(--hand) !important; border-radius: 4px; }
+.bk-capture .bk-name span { background-image: linear-gradient(#f4d7de, #f4d7de); }
+
+/* ano e páginas */
+.bk-year { font: 600 96px/.9 var(--hand); letter-spacing: -.02em; color: var(--deep); }
+.bk-ruler ol { font: 15px/1.4 var(--hand); color: var(--pencil); }
+.bk-ruler-now { font: 15px var(--hand); }
+.bk-page-no { font: 22px/1 var(--hand); color: var(--pencil); }
+.bk-blank p { font: 26px var(--hand); }
+.bk-empty { font: 24px/var(--lh) var(--hand); color: var(--pencil); padding: 0; }
+
+/* o canto dobrado: toque para virar, ou puxe dele */
+.bk-folio { position: relative; display: flex; justify-content: center; padding-top: 8px; min-height: 34px; }
+.bk-right::after, .bk-single::after { display: none; }
+.bk-corner-turn { position: absolute; bottom: -22px; width: 46px; height: 46px; padding: 0; border: 0; background: none; cursor: pointer; }
+.bk-corner-turn.next { right: -54px; }
+.bk-corner-turn.prev { left: -54px; }
+.bk-corner-turn span { position: absolute; bottom: 0; width: 30px; height: 30px; transition: width .35s var(--ease), height .35s var(--ease), box-shadow .35s; }
+.bk-corner-turn.next span { right: 0; background: linear-gradient(315deg, #f7f1ee 50%, #efe1e5 50%, #fffdfb 74%); border-top-left-radius: 6px; box-shadow: -2px -2px 6px #96536514; }
+.bk-corner-turn.prev span { left: 0; background: linear-gradient(45deg, #f7f1ee 50%, #efe1e5 50%, #fffdfb 74%); border-top-right-radius: 6px; box-shadow: 2px -2px 6px #96536514; }
+.bk-corner-turn:hover span, .bk-corner-turn:focus-visible span { width: 46px; height: 46px; box-shadow: -4px -4px 12px #9653652a; }
+.bk-corner-turn.prev:hover span { box-shadow: 4px -4px 12px #9653652a; }
+.bk-corner-turn.next span { animation: bk-corner-hint 3.2s 2s ease-in-out 2; }
+@keyframes bk-corner-hint { 0%, 70%, 100% { width: 30px; height: 30px; } 80% { width: 42px; height: 42px; } }
+
+/* a folha puxada: sombra que acompanha a curva */
+.bk-leaf.is-pulled .bk-leaf-face::after { animation: none; opacity: calc(var(--shade, 0) * .9); }
+
+/* celular: a página de baixo aparece enquanto você puxa a de cima */
+.bk-single { touch-action: pan-y; background: #fffdfb; }
+.bk-single.bk-under { position: absolute; inset: 0; z-index: 0; }
+.bk-book.is-narrow > .bk-single:not(.bk-under) { position: relative; z-index: 1; box-shadow: 0 0 0 transparent; }
+.bk-book.is-narrow.is-pulling > .bk-single:not(.bk-under) { box-shadow: 0 10px 30px #6d344426; }
+
+/* a foto na mão */
+body > .bk-hand { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; align-content: center; gap: 22px; padding: 20px; max-width: none; margin: 0; background: #3b2a3166; backdrop-filter: blur(3px); animation: bk-fade .3s both; cursor: zoom-out; user-select: none; -webkit-user-select: none; }
+.bk-hand-photo { margin: 0; padding: 14px 14px 18px; background: #fff; box-shadow: 0 40px 80px #2a1a2066, 0 4px 10px #0002; transform: rotate(-2deg); animation: bk-hand-in .55s cubic-bezier(.2, 1.2, .35, 1) both; }
+.bk-hand-photo img { display: block; width: min(70vw, 460px); max-height: 62vh; aspect-ratio: 1; object-fit: cover; }
+.bk-hand-photo figcaption { margin-top: 10px; text-align: center; font: 500 30px/1.1 'Caveat Caderno', 'Caveat', cursive; color: #3b3346; }
+.bk-hand-photo small { display: block; font: 20px 'Caveat Caderno', 'Caveat', cursive; color: #9a8d94; }
+.bk-hand-close { padding: 6px 14px; border-radius: 999px; background: #fffdfbd9; color: #965365; font: 20px 'Caveat Caderno', 'Caveat', cursive; }
+.bk-hand.is-leaving { animation: bk-fade .32s reverse both; }
+.bk-hand.is-leaving .bk-hand-photo { animation: bk-hand-out .32s ease-in both; }
+@keyframes bk-hand-in { from { opacity: 0; transform: translateY(40px) rotate(6deg) scale(.6); } to { opacity: 1; transform: rotate(-2deg); } }
+@keyframes bk-hand-out { to { opacity: 0; transform: translateY(30px) rotate(5deg) scale(.7); } }
+
+@media (max-width: 860px) {
+  .bk-book { --lh: 28px; }
+  .bk-name { font-size: 24px; }
+  .bk-compose-input { font-size: 24px; }
+  .bk-year { font-size: 70px; }
+  .bk-corner-turn.next { right: -22px; }
+  .bk-corner-turn.prev { left: -30px; }
+}
+@media (prefers-reduced-motion: reduce) { .bk-idea { clip-path: none; } }
+@media (max-width: 860px) { .bk-corner-turn { bottom: -16px; } }
