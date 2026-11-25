@@ -5,6 +5,10 @@ import { uploadImage } from '../data/media'
 import '../styles/bucket.css'
 
 const dateLabel = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '') }
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+const yearOf = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d.getFullYear() }
+// Posição no ano (0 a 1), para pôr o ponto na régua dos meses.
+const yearPosition = value => { const d = new Date(value); if (Number.isNaN(d.getTime())) return 0; const start = new Date(d.getFullYear(), 0, 1); const end = new Date(d.getFullYear() + 1, 0, 1); return Math.min(1, Math.max(0, (d - start) / (end - start))) }
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 const wait = ms => new Promise(resolve => window.setTimeout(resolve, ms))
 
@@ -133,7 +137,7 @@ function Memory({ item, index, who, mode, setMode, arriving, handlers }) {
           <button type="button" className="bk-edit-link" aria-label={`Editar ${item.title}`} onClick={() => setMode({ id: item.id, kind: 'edit' })}>Editar</button>
         </div>
       </div>
-      {main && <a className="bk-photo" href={main} target="_blank" rel="noopener noreferrer"><img src={main} alt={`Foto de ${item.title}`} loading="lazy" /><span className="sr-only"> (abre em nova aba)</span></a>}
+      {main && <a className="bk-photo bk-polaroid" href={main} target="_blank" rel="noopener noreferrer"><img src={main} alt={`Foto de ${item.title}`} loading="lazy" /><span className="sr-only"> (abre em nova aba)</span></a>}
     </>}
   </li>
 }
@@ -150,6 +154,7 @@ export default function BucketList({ role }) {
   const [lastIdea, setLastIdea] = useState(null)
   const [active, setActive] = useState(null)
   const [arrived, setArrived] = useState(null)
+  const [year, setYear] = useState(null)
   const [draw, setDraw] = useState({ running: false, scan: null, chosen: null, maxLevel: 5 })
   const timer = useRef(null)
   const typer = useRef(null)
@@ -198,17 +203,17 @@ export default function BucketList({ role }) {
       const updated = await updateItem(item.id, patch)
       setActive(null); setDraw(current => (current.chosen?.id === item.id ? { ...current, chosen: null } : current))
       await collapse(`idea-${item.id}`)
-      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); setArrived(item.id); setError('')
+      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); setArrived(item.id); setYear(yearOf(patch.doneAt)); setError('')
       window.setTimeout(() => setArrived(current => (current === item.id ? null : current)), 2200)
       window.setTimeout(() => document.getElementById(`memory-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 120)
-      flash('Guardada em “O que já vivemos”.')
+      flash('Riscada!')
     } catch (err) { console.error(err); fail('Não foi possível guardar. Tente de novo.') }
   }
   const undo = async item => {
     try {
       const updated = await updateItem(item.id, { done: false, doneAt: null })
       await collapse(`memory-${item.id}`)
-      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); flash('Voltou para “Para viver”.')
+      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); flash('Voltou para “Algum dia…”.')
     } catch (err) { console.error(err); fail('Não foi possível desfazer. Tente de novo.') }
   }
   const remove = async item => {
@@ -227,6 +232,14 @@ export default function BucketList({ role }) {
   const lived = inCategory.filter(item => item.done).sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt))
   const pool = roulettePool(all, { maxLevel: draw.maxLevel, category })
 
+  // Página da direita: um ano por vez, do mais recente para o mais antigo.
+  const thisYear = new Date().getFullYear()
+  const years = [...new Set(all.filter(item => item.done).map(item => yearOf(item.doneAt)).filter(Boolean))].sort((a, b) => b - a)
+  if (!years.length) years.push(thisYear)
+  const shownYear = years.includes(year) ? year : years[0]
+  const yearIndex = years.indexOf(shownYear)
+  const livedYear = lived.filter(item => yearOf(item.doneAt) === shownYear)
+
   const land = pick => setDraw(current => ({ ...current, running: false, scan: null, chosen: pick }))
   const drawNow = () => {
     if (draw.running || !pool.length) return
@@ -241,65 +254,82 @@ export default function BucketList({ role }) {
     }, 85)
   }
   const openCapture = item => { setActive({ id: item.id, kind: 'capture' }); window.setTimeout(() => document.getElementById(`idea-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 60) }
+  const jumpTo = id => document.getElementById(`memory-${id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' })
 
   const open = form.title.trim().length > 0
-  const sentence = items === null ? 'Abrindo a lista…' : `${total.done} de ${total.todo + total.done} ${total.done === 1 ? 'riscada' : 'riscadas'}`
 
   return <section className="bk" aria-label="Lista de desejos">
-    <header className="bk-mast">
-      <h1>Lista de desejos<span>.</span></h1><p className="bk-count" aria-live="polite">{sentence}</p>
-      {items !== null && total.todo + total.done > 0 && <span className="bk-progress" aria-hidden="true"><i style={{ width: `${(total.done / (total.todo + total.done)) * 100}%` }} /></span>}
-    </header>
-
-    <form className={`bk-compose ${open ? 'is-open' : ''}`} onSubmit={submit}>
-      <div className="bk-field">
-        <label htmlFor="bk-new" className="sr-only">Nova ideia</label>
-        <input id="bk-new" className="bk-compose-input" maxLength={140} autoComplete="off" placeholder="Eu quero…" value={form.title} onChange={event => { window.clearInterval(typer.current); setForm({ ...form, title: event.target.value }) }} />
-        <button type="button" className="bk-text-button bk-suggest" onClick={suggest}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>Sugerir uma</button>
-      </div>
-      <div className="bk-controls"><div className="bk-controls-inner">
-        <div className="bk-cats" role="radiogroup" aria-label="Categoria">
-          {CATEGORIES.map(entry => <button key={entry.key} type="button" role="radio" aria-checked={form.category === entry.key} onClick={() => setForm({ ...form, category: entry.key })}>{entry.label}</button>)}
-        </div>
-        <div className="bk-compose-row"><Level value={form.level} onChange={level => setForm({ ...form, level })} /><button type="submit" className="bk-primary" disabled={adding}>{adding ? 'Adicionando…' : 'Adicionar'}</button></div>
-      </div></div>
-    </form>
+    <h1 className="sr-only">Lista de desejos</h1>
     <p role="status" className="bk-status" key={notice}>{notice}</p>
     {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
 
-    <div className="bk-toolbar">
-      <nav aria-label="Categorias"><ul className="bk-nav">
-        <li><button type="button" aria-current={!category} onClick={() => setCategory('')}>Tudo</button></li>
-        {CATEGORIES.map(entry => <li key={entry.key}><button type="button" aria-current={category === entry.key} onClick={() => setCategory(entry.key)}>{entry.label}</button></li>)}
-      </ul></nav>
-      <button type="button" className="bk-draw" disabled={!pool.length || draw.running} onClick={drawNow}>Sortear uma<span aria-hidden="true">→</span></button>
-    </div>
+    <div className="bk-book">
+      <span className="bk-spine" aria-hidden="true" />
+      <span className="bk-ribbon" aria-hidden="true" />
+      <span className="bk-elastic" aria-hidden="true" />
+      {/* página 1: o que ainda falta viver */}
+      <section className="bk-page-sheet" aria-labelledby="bk-todo-title">
+        <header className="bk-page-head">
+          <h2 id="bk-todo-title">Algum dia… <small>{items === null ? '' : `${ideas.length} ${ideas.length === 1 ? 'ideia' : 'ideias'}`}</small></h2>
+          <label className="bk-filter"><span className="sr-only">Categoria</span><select value={category} onChange={event => setCategory(event.target.value)}><option value="">Tudo</option>{CATEGORIES.map(entry => <option key={entry.key} value={entry.key}>{entry.label}</option>)}</select></label>
+        </header>
 
-    {(draw.running || draw.chosen) && <div className="bk-today">
-      {draw.chosen ? <div className="bk-hero" role="status">
-        <span className="bk-eyebrow">Para hoje</span>
-        <h2>{draw.chosen.title}</h2>
-        <Meta item={draw.chosen} who={who(draw.chosen)} />
-        <div className="bk-hero-actions">
-          <button type="button" className="bk-primary" onClick={() => openCapture(draw.chosen)}>Fizemos</button>
-          <button type="button" className="bk-text-button" onClick={drawNow}>Sortear outra</button>
-          <label className="bk-level-limit">até o nível<select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value) })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select></label>
-          <button type="button" className="bk-text-button bk-close" onClick={() => setDraw({ ...draw, chosen: null })}>Fechar</button>
+        {(draw.running || draw.chosen) && <div className="bk-today">
+          {draw.chosen ? <div className="bk-hero" role="status">
+            <span className="bk-eyebrow">Para hoje</span>
+            <h3>{draw.chosen.title}</h3>
+            <div className="bk-hero-actions">
+              <button type="button" className="bk-primary" onClick={() => openCapture(draw.chosen)}>Fizemos</button>
+              <button type="button" className="bk-text-button" onClick={drawNow}>Sortear outra</button>
+              <label className="bk-level-limit">até o nível<select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value) })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select></label>
+              <button type="button" className="bk-text-button bk-close" onClick={() => setDraw({ ...draw, chosen: null })}>Fechar</button>
+            </div>
+          </div> : <p className="bk-scan" key={draw.scan} aria-hidden="true">{draw.scan}</p>}
+        </div>}
+
+        {items === null ? <p className="bk-empty">Abrindo o caderno…</p>
+          : ideas.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{ideas.map((item, index) => <Idea key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} handlers={handlers} />)}</ul>
+            : <p className="bk-empty">{all.length ? 'Nada por aqui com esse filtro.' : 'Página em branco. Escreva a primeira ideia.'}</p>}
+
+        <form className={`bk-compose ${open ? 'is-open' : ''}`} onSubmit={submit}>
+          <div className="bk-field">
+            <label htmlFor="bk-new" className="sr-only">Nova ideia</label>
+            <input id="bk-new" className="bk-compose-input" maxLength={140} autoComplete="off" placeholder="Eu quero…" value={form.title} onChange={event => { window.clearInterval(typer.current); setForm({ ...form, title: event.target.value }) }} />
+            <button type="button" className="bk-text-button bk-suggest" onClick={suggest} title="Sugerir uma ideia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>Sugerir</button>
+          </div>
+          <div className="bk-controls"><div className="bk-controls-inner">
+            <div className="bk-cats" role="radiogroup" aria-label="Categoria">
+              {CATEGORIES.map(entry => <button key={entry.key} type="button" role="radio" aria-checked={form.category === entry.key} onClick={() => setForm({ ...form, category: entry.key })}>{entry.label}</button>)}
+            </div>
+            <div className="bk-compose-row"><Level value={form.level} onChange={level => setForm({ ...form, level })} /><button type="submit" className="bk-primary" disabled={adding}>{adding ? 'Adicionando…' : 'Adicionar'}</button></div>
+          </div></div>
+        </form>
+
+        <footer className="bk-folio"><button type="button" className="bk-draw" disabled={!pool.length || draw.running} onClick={drawNow}>Sortear uma<span aria-hidden="true">→</span></button><span>{total.done} de {total.todo + total.done} riscadas · <i className="bk-page-no">1</i></span></footer>
+      </section>
+
+      {/* página 2: o ano, com o que já foi riscado */}
+      <section className="bk-page-sheet bk-year-page" aria-labelledby="bk-year-title">
+        <header className="bk-year-head">
+          <h2 id="bk-year-title"><span key={shownYear} className="bk-year">{shownYear}</span><small>{livedYear.length} {livedYear.length === 1 ? 'riscada' : 'riscadas'}{shownYear === thisYear ? ' este ano' : ''}</small></h2>
+          {years.length > 1 && <nav className="bk-years" aria-label="Anos">
+            <button type="button" disabled={yearIndex >= years.length - 1} onClick={() => setYear(years[yearIndex + 1])} aria-label="Ano anterior">←</button>
+            <button type="button" disabled={yearIndex <= 0} onClick={() => setYear(years[yearIndex - 1])} aria-label="Próximo ano">→</button>
+          </nav>}
+        </header>
+
+        <div className="bk-ruler" aria-hidden="true">
+          <ol>{MONTHS.map(month => <li key={month}>{month}</li>)}</ol>
+          <div className="bk-ruler-line">
+            {livedYear.map(item => <button type="button" tabIndex={-1} key={item.id} className="bk-ruler-dot" style={{ left: `${yearPosition(item.doneAt) * 100}%` }} title={item.title} onClick={() => jumpTo(item.id)} />)}
+            {shownYear === thisYear && <span className="bk-ruler-now" style={{ left: `${yearPosition(new Date().toISOString()) * 100}%` }}>hoje</span>}
+          </div>
         </div>
-      </div> : <p className="bk-scan" key={draw.scan} aria-hidden="true">{draw.scan}</p>}
-    </div>}
 
-    <section aria-labelledby="bk-todo-title">
-      <h2 id="bk-todo-title" className="bk-section">Para viver <small>{ideas.length}</small></h2>
-      {items === null ? <p className="bk-empty">Abrindo a lista…</p>
-        : ideas.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{ideas.map((item, index) => <Idea key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} handlers={handlers} />)}</ul>
-          : <p className="bk-empty">{all.length ? 'Nada para viver com esse filtro.' : 'Ainda não tem nada. Escreva a primeira ideia acima.'}</p>}
-    </section>
-
-    <section aria-labelledby="bk-lived-title" className="bk-lived">
-      <h2 id="bk-lived-title" className="bk-section">O que já vivemos <small>{lived.length}</small></h2>
-      {lived.length ? <ul className="bk-ideas">{lived.map((item, index) => <Memory key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} arriving={arrived === item.id} handlers={handlers} />)}</ul>
-        : items !== null && <p className="bk-empty soft">Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
-    </section>
+        {livedYear.length ? <ul className="bk-ideas bk-memories" key={shownYear}>{livedYear.map((item, index) => <Memory key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} arriving={arrived === item.id} handlers={handlers} />)}</ul>
+          : items !== null && <p className="bk-empty soft">Nada riscado em {shownYear} ainda. Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
+        <footer className="bk-folio right"><i className="bk-page-no">2</i></footer>
+      </section>
+    </div>
   </section>
 }

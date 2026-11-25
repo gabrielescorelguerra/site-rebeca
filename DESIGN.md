@@ -45,14 +45,13 @@ O botão “Testar como usuário comum” no editor ativa uma simulação nesta 
 
 ## Lista de desejos
 Segunda escolha da página “Nós dois” (`/links?aba=lista`, só admin por enquanto; a escolha “Links | Lista de desejos” fica no cabeçalho), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
-É uma bucket list: uma coluna só (até 760px), uma ideia por linha, com uma bolinha para riscar.
-- Cabeçalho: título, "X de Y riscadas" e um fio fino de progresso logo abaixo.
-- Campo "Eu quero…": categoria e nível só aparecem quando o campo está em uso; "Sugerir uma" digita a sugestão no campo.
-- Uma linha de barra: filtro por categoria à esquerda e "Sortear uma →" à direita. O limite de nível fica dentro do sorteio.
-- "Para viver": bolinha vazia, título, detalhe e "categoria · ideia sua/dela/dele". Marcar a bolinha abre "Fizemos" na própria linha: data (editável), como foi e fotos. "Editar" aparece ao passar o mouse (sempre visível no toque).
-- "O que já vivemos": a mesma linha, com a bolinha marcada, título riscado em rosa, data, frase e a primeira foto pequena à direita. Desmarcar a bolinha devolve para a lista.
+É uma bucket list num caderno aberto: duas páginas com a dobra no meio (no celular, uma folha embaixo da outra).
+- Página 1, "Algum dia…": as ideias que faltam, com bolinha para riscar, filtro de categoria discreto ("Tudo ▾"), "Eu quero…" como a próxima linha, "Sugerir", e no rodapé "Sortear uma →" e "X de Y riscadas". O sorteio aparece no topo da página.
+- Marcar a bolinha abre "Fizemos" na própria linha (data editável, como foi, fotos). A ideia vai para a página do ano em que aconteceu.
+- Página 2, o ano: número grande (2026), setas para anos anteriores, régua dos meses com um ponto por ideia riscada e a marca "hoje", e a lista do ano: bolinha marcada, título riscado em rosa, data, frase e a primeira foto como polaroid. Desmarcar devolve para "Algum dia…".
+- Detalhes de caderno, sempre discretos e na paleta: textura leve de papel, espessura das folhas embaixo, costura tracejada na lombada, fitinha marcadora rosa saindo da dobra, elástico ao lado, linha de margem rosa na página 1, fita adesiva nas polaroids, números de página em itálico e canto da folha dobrado.
 - Categorias: Sonhos, Bobeiras, Comidas, Viagens, Românticos, Aventuras (as chaves no banco não mudam).
-- Sem selos, emojis, confete ou cartões; o único indicador de progresso é o fio do cabeçalho.
+- Sem selos, emojis, confete ou barras de progresso.
 
 ## Movimento
 - Tokens em `src/styles/motion.css`: curva `--ease-out`, entradas em cascata (`.stagger`), troca de página com View Transitions (navegadores sem suporte trocam direto), escolha entre seções com pílula deslizante, feedback de toque.
