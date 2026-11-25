@@ -252,3 +252,18 @@ test('cursores: visibilidade por rota, ociosidade e expiração', () => {
   assert.deepEqual(Object.keys(prune(peers, now)), ['a'])
   assert.equal(prune({ a: mouse }, now) !== undefined, true)
 })
+
+import { STICKERS, STICKER_KINDS, pageKey, stickerLabel } from '../src/data/stickerKinds.js'
+
+test('adesivos têm chaves únicas e válidas para o banco', () => {
+  assert.equal(new Set(STICKER_KINDS).size, STICKERS.length)
+  for (const kind of STICKER_KINDS) assert.match(kind, /^[a-z-]{2,24}$/)
+  assert.equal(stickerLabel('coracao'), 'Coração')
+  assert.equal(stickerLabel('nada'), 'Adesivo')
+})
+
+test('páginas dos adesivos seguem o formato do banco', () => {
+  assert.equal(pageKey(2026), 'ano-2026')
+  assert.equal(pageKey(null), 'algum-dia')
+  assert.match(pageKey(2025), /^(algum-dia|ano-[0-9]{4})$/)
+})

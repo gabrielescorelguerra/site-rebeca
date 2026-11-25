@@ -43,13 +43,16 @@ O botão “Testar como usuário comum” no editor ativa uma simulação nesta 
 - Molduras, texturas e formas são CSS puro e usam a cor de destaque da página; mantenha as molduras antigas (chaves em `src/data/visuals.js`) para não quebrar chamadas salvas.
 - O editor segue a paleta do site (rosa antigo e creme); o visual de cada call é livre e fica por conta do conteúdo.
 
-## Lista de desejos
-Segunda escolha da página “Nós dois” (`/links?aba=lista`, só admin por enquanto; a escolha “Links | Lista de desejos” fica no cabeçalho), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
+## Caderno de sonhos
+Segunda escolha da página “Nós dois” (`/links?aba=lista`, só admin por enquanto; a escolha “Links | Caderno de sonhos” fica no cabeçalho), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
 É uma bucket list num caderno aberto: duas páginas com a dobra no meio (no celular, uma folha embaixo da outra).
 - Página 1, "Algum dia…": as ideias que faltam, com bolinha para riscar, filtro de categoria discreto ("Tudo ▾"), "Eu quero…" como a próxima linha, "Sugerir", e no rodapé "Sortear uma →" e "X de Y riscadas". O sorteio aparece no topo da página.
 - Marcar a bolinha abre "Fizemos" na própria linha (data editável, como foi, fotos). A ideia vai para a página do ano em que aconteceu.
 - Página 2, o ano: número grande (2026), setas para anos anteriores, régua dos meses com um ponto por ideia riscada e a marca "hoje", e a lista do ano: bolinha marcada, título riscado em rosa, data, frase e a primeira foto como polaroid. Desmarcar devolve para "Algum dia…".
 - Detalhes de caderno, sempre discretos e na paleta: textura leve de papel, espessura das folhas embaixo, costura tracejada na lombada, fitinha marcadora rosa saindo da dobra, elástico ao lado, linha de margem rosa na página 1, fita adesiva nas polaroids, números de página em itálico e canto da folha dobrado.
+- Capa: o caderno começa fechado (capa rosa antigo, etiqueta “caderno de sonhos”, elástico). “Abrir o caderno” vira a capa para a esquerda e mostra a folha de guarda; a capa não volta na mesma sessão do navegador.
+- Virar páginas: cada ano é uma página. As setas, o “virar para 2025” no canto e o gesto de deslizar no celular trocam o ano; no computador a folha vira de verdade (3D), no celular só troca com suavidade.
+- Adesivos: “Adesivos” abre a cartela (12 desenhos próprios, sem emoji). Arraste para qualquer página, toque para colar no canto da primeira, arraste para mover, toque para girar ou tirar. Ficam salvos no Supabase (tabela `bucket_stickers`, posição em % da página).
 - Categorias: Sonhos, Bobeiras, Comidas, Viagens, Românticos, Aventuras (as chaves no banco não mudam).
 - Sem selos, emojis, confete ou barras de progresso.
 

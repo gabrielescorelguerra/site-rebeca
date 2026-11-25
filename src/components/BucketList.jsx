@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { addItem, listItems, removeItem, updateItem } from '../data/bucketList'
 import { CATEGORIES, LEVELS, MAX_PHOTOS, categoryOf, counts, fromDateInput, pickIdea, roulettePool, toDateInput } from '../data/bucketIdeas'
 import { uploadImage } from '../data/media'
+import { addSticker, listStickers, pageKey, removeSticker, updateSticker } from '../data/bucketStickers'
+import { StickerLayer, StickerSheet } from './StickerLayer'
 import '../styles/bucket.css'
 
 const dateLabel = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '') }
@@ -9,6 +11,11 @@ const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', '
 const yearOf = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d.getFullYear() }
 // Posição no ano (0 a 1), para pôr o ponto na régua dos meses.
 const yearPosition = value => { const d = new Date(value); if (Number.isNaN(d.getTime())) return 0; const start = new Date(d.getFullYear(), 0, 1); const end = new Date(d.getFullYear() + 1, 0, 1); return Math.min(1, Math.max(0, (d - start) / (end - start))) }
+const jumpTo = id => document.getElementById(`memory-${id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' })
+const narrow = () => window.matchMedia?.('(max-width: 860px)').matches
+const COVER_KEY = 'caderno-aberto'
+const wasOpened = () => { try { return window.sessionStorage.getItem(COVER_KEY) === '1' } catch { return false } }
+const rememberOpened = () => { try { window.sessionStorage.setItem(COVER_KEY, '1') } catch { /* sem armazenamento: a capa volta na próxima visita */ } }
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 const wait = ms => new Promise(resolve => window.setTimeout(resolve, ms))
 
@@ -142,6 +149,31 @@ function Memory({ item, index, who, mode, setMode, arriving, handlers }) {
   </li>
 }
 
+// Página do ano: número grande, régua dos meses e o que foi riscado. Também é usada na folha que vira.
+function YearPage({ year, lived, thisYear, years, onTurn, who, active, setActive, arrived, handlers, stickers, still = false }) {
+  const index = years.indexOf(year)
+  return <>
+    <header className="bk-year-head">
+      <h2 id={still ? undefined : 'bk-year-title'}><span className="bk-year">{year}</span><small>{lived.length} {lived.length === 1 ? 'riscada' : 'riscadas'}{year === thisYear ? ' este ano' : ''}</small></h2>
+      {years.length > 1 && <nav className="bk-years" aria-label="Anos">
+        <button type="button" disabled={index >= years.length - 1} onClick={() => onTurn(years[index + 1])} aria-label="Ano anterior">←</button>
+        <button type="button" disabled={index <= 0} onClick={() => onTurn(years[index - 1])} aria-label="Próximo ano">→</button>
+      </nav>}
+    </header>
+    <div className="bk-ruler" aria-hidden="true">
+      <ol>{MONTHS.map(month => <li key={month}>{month}</li>)}</ol>
+      <div className="bk-ruler-line">
+        {lived.map(item => <button type="button" tabIndex={-1} key={item.id} className="bk-ruler-dot" style={{ left: `${yearPosition(item.doneAt) * 100}%` }} title={item.title} onClick={() => jumpTo(item.id)} />)}
+        {year === thisYear && <span className="bk-ruler-now" style={{ left: `${yearPosition(new Date().toISOString()) * 100}%` }}>hoje</span>}
+      </div>
+    </div>
+    {lived.length ? <ul className="bk-ideas bk-memories">{lived.map((item, i) => <Memory key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} arriving={!still && arrived === item.id} handlers={handlers} />)}</ul>
+      : <p className="bk-empty soft">Nada riscado em {year} ainda. Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
+    <footer className="bk-folio right">{index < years.length - 1 && <button type="button" className="bk-corner" tabIndex={still ? -1 : 0} onClick={() => onTurn(years[index + 1])}>virar para {years[index + 1]}</button>}<i className="bk-page-no">{2 + index}</i></footer>
+    {stickers}
+  </>
+}
+
 export default function BucketList({ role }) {
   const me = role === 'admin' ? 'admin' : 'user'
   const who = item => (item.author === me ? 'ideia sua' : me === 'admin' ? 'ideia dela' : 'ideia dele')
@@ -155,18 +187,31 @@ export default function BucketList({ role }) {
   const [active, setActive] = useState(null)
   const [arrived, setArrived] = useState(null)
   const [year, setYear] = useState(null)
+  const [turn, setTurn] = useState(null)
+  const [cover, setCover] = useState(() => (wasOpened() ? 'open' : 'closed'))
+  const [stickers, setStickers] = useState([])
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [picked, setPicked] = useState(null)
   const [draw, setDraw] = useState({ running: false, scan: null, chosen: null, maxLevel: 5 })
   const timer = useRef(null)
   const typer = useRef(null)
   const noticeTimer = useRef(null)
+  const touch = useRef(null)
 
   const load = useCallback(() => listItems().then(list => { setItems(list); setError('') }).catch(err => { console.error(err); setError('Não foi possível carregar a lista. Confira se a tabela bucket_items existe no Supabase.'); setItems(current => current ?? []) }), [])
-  useEffect(() => { load() }, [load])
+  const loadStickers = useCallback(() => listStickers().then(setStickers).catch(err => console.error(err)), [])
+  useEffect(() => { load(); loadStickers() }, [load, loadStickers])
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    if (!picked) return undefined
+    const off = event => { if (!event.target.closest?.('.bk-sticker')) setPicked(null) }
+    document.addEventListener('pointerdown', off)
+    return () => document.removeEventListener('pointerdown', off)
+  }, [picked])
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') { load(); loadStickers() } }
     document.addEventListener('visibilitychange', onVisible)
     return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearInterval(typer.current); window.clearTimeout(noticeTimer.current) }
-  }, [load])
+  }, [load, loadStickers])
 
   const flash = text => { setNotice(text); window.clearTimeout(noticeTimer.current); noticeTimer.current = window.setTimeout(() => setNotice(''), 4000) }
   const fail = text => { setError(text); setNotice('') }
@@ -225,6 +270,21 @@ export default function BucketList({ role }) {
   }
   const handlers = { save, finish, undo, remove, error: fail }
 
+  const placeSticker = async sticker => {
+    try { const created = await addSticker({ ...sticker, author: me }); setStickers(list => [...list, created]); setPicked(created.id) }
+    catch (err) { console.error(err); fail('Não foi possível colar o adesivo. Confira se a tabela bucket_stickers existe no Supabase.') }
+  }
+  const moveSticker = async (sticker, patch) => {
+    setStickers(list => list.map(entry => (entry.id === sticker.id ? { ...entry, ...patch } : entry)))
+    try { await updateSticker(sticker.id, patch) } catch (err) { console.error(err); fail('Não foi possível mover o adesivo.') }
+  }
+  const rotateSticker = sticker => { let rotation = sticker.rotation + 20; if (rotation > 180) rotation -= 360; moveSticker(sticker, { rotation }) }
+  const dropSticker = async sticker => {
+    setPicked(null); setStickers(list => list.filter(entry => entry.id !== sticker.id))
+    try { await removeSticker(sticker.id) } catch (err) { console.error(err); fail('Não foi possível tirar o adesivo.'); loadStickers() }
+  }
+  const layer = (page, still) => <StickerLayer page={page} stickers={stickers} selected={picked} onSelect={setPicked} onMove={moveSticker} onRotate={rotateSticker} onRemove={dropSticker} still={still} />
+
   const all = items || []
   const total = counts(all)
   const inCategory = all.filter(item => !category || item.category === category)
@@ -237,8 +297,24 @@ export default function BucketList({ role }) {
   const years = [...new Set(all.filter(item => item.done).map(item => yearOf(item.doneAt)).filter(Boolean))].sort((a, b) => b - a)
   if (!years.length) years.push(thisYear)
   const shownYear = years.includes(year) ? year : years[0]
-  const yearIndex = years.indexOf(shownYear)
-  const livedYear = lived.filter(item => yearOf(item.doneAt) === shownYear)
+  const livedIn = y => lived.filter(item => yearOf(item.doneAt) === y)
+
+  // Virar a página: para trás no tempo a folha da direita vai para a esquerda; para frente, volta.
+  const turnTo = next => {
+    if (turn || next === shownYear || !years.includes(next)) return
+    setPicked(null); setActive(null)
+    if (reduceMotion() || narrow()) { setYear(next); return }
+    const older = next < shownYear
+    setTurn({ face: older ? shownYear : next, dir: older ? 'forward' : 'back' })
+    if (older) setYear(next)
+    window.setTimeout(() => { if (!older) setYear(next); setTurn(null) }, 950)
+  }
+  const openCover = () => {
+    rememberOpened()
+    if (reduceMotion()) { setCover('open'); return }
+    setCover('opening')
+    window.setTimeout(() => setCover('open'), narrow() ? 650 : 1250)
+  }
 
   const land = pick => setDraw(current => ({ ...current, running: false, scan: null, chosen: pick }))
   const drawNow = () => {
@@ -254,21 +330,37 @@ export default function BucketList({ role }) {
     }, 85)
   }
   const openCapture = item => { setActive({ id: item.id, kind: 'capture' }); window.setTimeout(() => document.getElementById(`idea-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 60) }
-  const jumpTo = id => document.getElementById(`memory-${id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' })
 
   const open = form.title.trim().length > 0
 
-  return <section className="bk" aria-label="Lista de desejos">
-    <h1 className="sr-only">Lista de desejos</h1>
+  const yearProps = { thisYear, years, onTurn: turnTo, who, active, setActive, arrived, handlers }
+  const closed = cover !== 'open'
+
+  return <section className="bk" aria-label="Caderno de sonhos">
+    <h1 className="sr-only">Caderno de sonhos</h1>
     <p role="status" className="bk-status" key={notice}>{notice}</p>
     {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
 
-    <div className="bk-book">
+    <div className={`bk-book is-${cover}`}>
       <span className="bk-spine" aria-hidden="true" />
       <span className="bk-ribbon" aria-hidden="true" />
       <span className="bk-elastic" aria-hidden="true" />
+
+      {cover !== 'open' && <div className="bk-leaf bk-cover-leaf">
+        <div className="bk-leaf-face bk-cover">
+          <span className="bk-cover-label"><small>caderno de</small>sonhos<small>dele &amp; dela · desde 2026</small></span>
+          <button type="button" className="bk-cover-open" onClick={openCover} disabled={cover === 'opening'}>Abrir o caderno</button>
+        </div>
+        <div className="bk-leaf-face bk-leaf-back bk-endpaper" aria-hidden="true"><p>Este caderno é nosso.<br /><span>Para guardar o que a gente quer viver e o que já viveu.</span></p></div>
+      </div>}
+
+      {turn && <div className={`bk-leaf is-${turn.dir}`} aria-hidden="true">
+        <div className="bk-leaf-face bk-page-sheet bk-year-page" inert><YearPage year={turn.face} lived={livedIn(turn.face)} {...yearProps} still stickers={layer(pageKey(turn.face), true)} /></div>
+        <div className="bk-leaf-face bk-leaf-back" />
+      </div>}
+
       {/* página 1: o que ainda falta viver */}
-      <section className="bk-page-sheet" aria-labelledby="bk-todo-title">
+      <section className="bk-page-sheet bk-first" data-sticker-page="algum-dia" aria-labelledby="bk-todo-title" inert={closed || undefined}>
         <header className="bk-page-head">
           <h2 id="bk-todo-title">Algum dia… <small>{items === null ? '' : `${ideas.length} ${ideas.length === 1 ? 'ideia' : 'ideias'}`}</small></h2>
           <label className="bk-filter"><span className="sr-only">Categoria</span><select value={category} onChange={event => setCategory(event.target.value)}><option value="">Tudo</option>{CATEGORIES.map(entry => <option key={entry.key} value={entry.key}>{entry.label}</option>)}</select></label>
@@ -305,31 +397,15 @@ export default function BucketList({ role }) {
           </div></div>
         </form>
 
-        <footer className="bk-folio"><button type="button" className="bk-draw" disabled={!pool.length || draw.running} onClick={drawNow}>Sortear uma<span aria-hidden="true">→</span></button><span>{total.done} de {total.todo + total.done} riscadas · <i className="bk-page-no">1</i></span></footer>
+        <footer className="bk-folio"><span className="bk-folio-actions"><button type="button" className="bk-draw" disabled={!pool.length || draw.running} onClick={drawNow}>Sortear uma<span aria-hidden="true">→</span></button><button type="button" className="bk-draw" aria-expanded={sheetOpen} onClick={() => setSheetOpen(value => !value)}>Adesivos</button></span><span>{total.done} de {total.todo + total.done} riscadas · <i className="bk-page-no">1</i></span></footer>
+        {layer('algum-dia')}
       </section>
 
       {/* página 2: o ano, com o que já foi riscado */}
-      <section className="bk-page-sheet bk-year-page" aria-labelledby="bk-year-title">
-        <header className="bk-year-head">
-          <h2 id="bk-year-title"><span key={shownYear} className="bk-year">{shownYear}</span><small>{livedYear.length} {livedYear.length === 1 ? 'riscada' : 'riscadas'}{shownYear === thisYear ? ' este ano' : ''}</small></h2>
-          {years.length > 1 && <nav className="bk-years" aria-label="Anos">
-            <button type="button" disabled={yearIndex >= years.length - 1} onClick={() => setYear(years[yearIndex + 1])} aria-label="Ano anterior">←</button>
-            <button type="button" disabled={yearIndex <= 0} onClick={() => setYear(years[yearIndex - 1])} aria-label="Próximo ano">→</button>
-          </nav>}
-        </header>
-
-        <div className="bk-ruler" aria-hidden="true">
-          <ol>{MONTHS.map(month => <li key={month}>{month}</li>)}</ol>
-          <div className="bk-ruler-line">
-            {livedYear.map(item => <button type="button" tabIndex={-1} key={item.id} className="bk-ruler-dot" style={{ left: `${yearPosition(item.doneAt) * 100}%` }} title={item.title} onClick={() => jumpTo(item.id)} />)}
-            {shownYear === thisYear && <span className="bk-ruler-now" style={{ left: `${yearPosition(new Date().toISOString()) * 100}%` }}>hoje</span>}
-          </div>
-        </div>
-
-        {livedYear.length ? <ul className="bk-ideas bk-memories" key={shownYear}>{livedYear.map((item, index) => <Memory key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} arriving={arrived === item.id} handlers={handlers} />)}</ul>
-          : items !== null && <p className="bk-empty soft">Nada riscado em {shownYear} ainda. Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
-        <footer className="bk-folio right"><i className="bk-page-no">2</i></footer>
+      <section className="bk-page-sheet bk-year-page" data-sticker-page={pageKey(shownYear)} aria-labelledby="bk-year-title" inert={closed || undefined} onTouchStart={event => { touch.current = event.touches[0].clientX }} onTouchEnd={event => { const dx = event.changedTouches[0].clientX - (touch.current ?? event.changedTouches[0].clientX); touch.current = null; const at = years.indexOf(shownYear); if (dx < -70 && at < years.length - 1) turnTo(years[at + 1]); if (dx > 70 && at > 0) turnTo(years[at - 1]) }}>
+        <div key={shownYear} className="bk-year-content"><YearPage year={shownYear} lived={livedIn(shownYear)} {...yearProps} stickers={layer(pageKey(shownYear))} /></div>
       </section>
     </div>
+    {sheetOpen && <StickerSheet onPlace={placeSticker} onClose={() => setSheetOpen(false)} />}
   </section>
 }

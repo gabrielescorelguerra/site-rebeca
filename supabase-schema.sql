@@ -86,3 +86,20 @@ create policy "public can read bucket" on public.bucket_items for select to anon
 create policy "public can insert bucket" on public.bucket_items for insert to anon, authenticated with check (true);
 create policy "public can update bucket" on public.bucket_items for update to anon, authenticated using (true) with check (true);
 create policy "public can delete bucket" on public.bucket_items for delete to anon, authenticated using (true);
+
+-- Adesivos do Caderno de sonhos: posição em % da página (algum-dia ou ano-AAAA).
+create table if not exists public.bucket_stickers (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind ~ '^[a-z-]{2,24}$'),
+  page text not null check (page ~ '^(algum-dia|ano-[0-9]{4})$'),
+  x real not null check (x between 0 and 100),
+  y real not null check (y between 0 and 100),
+  rotation real not null default 0 check (rotation between -180 and 180),
+  author text not null default 'admin' check (author in ('admin', 'user')),
+  created_at timestamptz not null default now()
+);
+alter table public.bucket_stickers enable row level security;
+create policy "public can read stickers" on public.bucket_stickers for select to anon, authenticated using (true);
+create policy "public can insert stickers" on public.bucket_stickers for insert to anon, authenticated with check (true);
+create policy "public can update stickers" on public.bucket_stickers for update to anon, authenticated using (true) with check (true);
+create policy "public can delete stickers" on public.bucket_stickers for delete to anon, authenticated using (true);

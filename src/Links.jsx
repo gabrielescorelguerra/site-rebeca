@@ -72,7 +72,7 @@ function LinksPanel({ admin, authenticated, onDirty }) {
   </section>
 }
 
-const OPTIONS = [{ key: 'links', label: 'Links' }, { key: 'lista', label: 'Lista de desejos' }]
+const OPTIONS = [{ key: 'links', label: 'Links' }, { key: 'lista', label: 'Caderno de sonhos' }]
 
 export default function Links() {
   const { admin, authenticated, testing } = useAccess()
