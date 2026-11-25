@@ -11,7 +11,6 @@ const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', '
 const yearOf = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d.getFullYear() }
 // Posição no ano (0 a 1), para pôr o ponto na régua dos meses.
 const yearPosition = value => { const d = new Date(value); if (Number.isNaN(d.getTime())) return 0; const start = new Date(d.getFullYear(), 0, 1); const end = new Date(d.getFullYear() + 1, 0, 1); return Math.min(1, Math.max(0, (d - start) / (end - start))) }
-const jumpTo = id => document.getElementById(`memory-${id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' })
 const narrow = () => window.matchMedia?.('(max-width: 860px)').matches
 const COVER_KEY = 'caderno-aberto'
 const wasOpened = () => { try { return window.sessionStorage.getItem(COVER_KEY) === '1' } catch { return false } }
@@ -149,30 +148,25 @@ function Memory({ item, index, who, mode, setMode, arriving, handlers }) {
   </li>
 }
 
-// Página do ano: número grande, régua dos meses e o que foi riscado. Também é usada na folha que vira.
-function YearPage({ year, lived, thisYear, years, onTurn, who, active, setActive, arrived, handlers, stickers, still = false }) {
-  const index = years.indexOf(year)
-  return <>
-    <header className="bk-year-head">
-      <h2 id={still ? undefined : 'bk-year-title'}><span className="bk-year">{year}</span><small>{lived.length} {lived.length === 1 ? 'riscada' : 'riscadas'}{year === thisYear ? ' este ano' : ''}</small></h2>
-      {years.length > 1 && <nav className="bk-years" aria-label="Anos">
-        <button type="button" disabled={index >= years.length - 1} onClick={() => onTurn(years[index + 1])} aria-label="Ano anterior">←</button>
-        <button type="button" disabled={index <= 0} onClick={() => onTurn(years[index - 1])} aria-label="Próximo ano">→</button>
-      </nav>}
-    </header>
-    <div className="bk-ruler" aria-hidden="true">
-      <ol>{MONTHS.map(month => <li key={month}>{month}</li>)}</ol>
-      <div className="bk-ruler-line">
-        {lived.map(item => <button type="button" tabIndex={-1} key={item.id} className="bk-ruler-dot" style={{ left: `${yearPosition(item.doneAt) * 100}%` }} title={item.title} onClick={() => jumpTo(item.id)} />)}
-        {year === thisYear && <span className="bk-ruler-now" style={{ left: `${yearPosition(new Date().toISOString()) * 100}%` }}>hoje</span>}
-      </div>
-    </div>
-    {lived.length ? <ul className="bk-ideas bk-memories">{lived.map((item, i) => <Memory key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} arriving={!still && arrived === item.id} handlers={handlers} />)}</ul>
-      : <p className="bk-empty soft">Nada riscado em {year} ainda. Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
-    <footer className="bk-folio right">{index < years.length - 1 && <button type="button" className="bk-corner" tabIndex={still ? -1 : 0} onClick={() => onTurn(years[index + 1])}>virar para {years[index + 1]}</button>}<i className="bk-page-no">{2 + index}</i></footer>
-    {stickers}
-  </>
+// Quantas linhas cabem numa página (o caderno tem altura fixa; o resto vai para a próxima página).
+const CAPACITY = { wide: { ideasFirst: 4, ideas: 6, yearFirst: 3, year: 4 }, narrow: { ideasFirst: 3, ideas: 5, yearFirst: 2, year: 3 } }
+const chunk = (list, first, rest) => {
+  const out = [list.slice(0, first)]
+  for (let i = first; i < list.length; i += rest) out.push(list.slice(i, i + rest))
+  return out
 }
+// Monta a sequência de páginas: primeiro "Algum dia…", depois um ano por vez, do mais recente ao mais antigo.
+function buildPages({ ideas, lived, years, wide }) {
+  const cap = wide ? CAPACITY.wide : CAPACITY.narrow
+  const pages = chunk(ideas, cap.ideasFirst, cap.ideas).map((part, i) => ({ type: 'ideas', n: i + 1, items: part, key: pageKey('algum-dia', i + 1) }))
+  for (const year of years) {
+    const ofYear = lived.filter(item => yearOf(item.doneAt) === year)
+    chunk(ofYear, cap.yearFirst, cap.year).forEach((part, i) => pages.push({ type: 'year', year, n: i + 1, items: part, total: ofYear.length, key: pageKey(year, i + 1) }))
+  }
+  if (wide && pages.length % 2) pages.push({ type: 'blank', n: 1, items: [], key: 'em-branco' })
+  return pages
+}
+const pageOf = (pages, id) => pages.findIndex(page => page.items.some(item => item.id === id))
 
 export default function BucketList({ role }) {
   const me = role === 'admin' ? 'admin' : 'user'
@@ -186,21 +180,32 @@ export default function BucketList({ role }) {
   const [lastIdea, setLastIdea] = useState(null)
   const [active, setActive] = useState(null)
   const [arrived, setArrived] = useState(null)
-  const [year, setYear] = useState(null)
+  const [at, setAt] = useState(0)
   const [turn, setTurn] = useState(null)
+  const [slide, setSlide] = useState('')
+  const [wide, setWide] = useState(() => !narrow())
   const [cover, setCover] = useState(() => (wasOpened() ? 'open' : 'closed'))
   const [stickers, setStickers] = useState([])
   const [sheetOpen, setSheetOpen] = useState(false)
   const [picked, setPicked] = useState(null)
+  const [fresh, setFresh] = useState(null)
   const [draw, setDraw] = useState({ running: false, scan: null, chosen: null, maxLevel: 5 })
   const timer = useRef(null)
   const typer = useRef(null)
   const noticeTimer = useRef(null)
   const touch = useRef(null)
+  const turnTimer = useRef(null)
 
   const load = useCallback(() => listItems().then(list => { setItems(list); setError('') }).catch(err => { console.error(err); setError('Não foi possível carregar a lista. Confira se a tabela bucket_items existe no Supabase.'); setItems(current => current ?? []) }), [])
   const loadStickers = useCallback(() => listStickers().then(setStickers).catch(err => console.error(err)), [])
   useEffect(() => { load(); loadStickers() }, [load, loadStickers])
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 860px)')
+    if (!media) return undefined
+    const onChange = () => setWide(!media.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
   useEffect(() => {
     if (!picked) return undefined
     const off = event => { if (!event.target.closest?.('.bk-sticker')) setPicked(null) }
@@ -210,15 +215,62 @@ export default function BucketList({ role }) {
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') { load(); loadStickers() } }
     document.addEventListener('visibilitychange', onVisible)
-    return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearInterval(typer.current); window.clearTimeout(noticeTimer.current) }
+    return () => { document.removeEventListener('visibilitychange', onVisible); window.clearInterval(timer.current); window.clearInterval(typer.current); window.clearTimeout(noticeTimer.current); window.clearTimeout(turnTimer.current) }
   }, [load, loadStickers])
 
   const flash = text => { setNotice(text); window.clearTimeout(noticeTimer.current); noticeTimer.current = window.setTimeout(() => setNotice(''), 4000) }
   const fail = text => { setError(text); setNotice('') }
 
+  // ----- páginas -----
+  const all = items || []
+  const total = counts(all)
+  const ideasOf = list => list.filter(item => !item.done && (!category || item.category === category))
+  const livedOf = list => list.filter(item => item.done && (!category || item.category === category)).sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt))
+  const yearsOf = list => {
+    const found = [...new Set(list.filter(item => item.done).map(item => yearOf(item.doneAt)).filter(Boolean))].sort((a, b) => b - a)
+    return found.length ? found : [new Date().getFullYear()]
+  }
+  const pagesFor = list => buildPages({ ideas: ideasOf(list), lived: livedOf(list), years: yearsOf(list), wide })
+  const pages = pagesFor(all)
+  const ideas = ideasOf(all)
+  const years = yearsOf(all)
+  const thisYear = new Date().getFullYear()
+  const last = pages.length - 1
+  const here = Math.min(at, last)
+  const spread = Math.floor(here / 2)
+  const pool = roulettePool(all, { maxLevel: draw.maxLevel, category })
+
+  // Virar: no computador a folha vira em 3D (uma página dupla por vez); no celular, uma página desliza.
+  const goTo = (index, total = pages.length) => {
+    const target = Math.max(0, Math.min(index, total - 1))
+    setPicked(null)
+    if (!wide || reduceMotion()) {
+      if (target === here) return
+      setSlide(target > here ? 'next' : 'prev'); setAt(target); return
+    }
+    const from = spread, to = Math.floor(target / 2)
+    setAt(target)
+    if (from === to || turn) return
+    setActive(null)
+    setTurn({ dir: to > from ? 'forward' : 'back', from, to })
+    window.clearTimeout(turnTimer.current)
+    turnTimer.current = window.setTimeout(() => setTurn(null), 950)
+  }
+  const step = delta => goTo(wide ? (spread + delta) * 2 : here + delta)
+  useEffect(() => {
+    if (cover !== 'open') return undefined
+    const onKey = event => {
+      if (event.target.closest?.('input, textarea, select, [contenteditable]')) return
+      if (event.key === 'ArrowRight') step(1)
+      if (event.key === 'ArrowLeft') step(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   const create = async values => {
     setAdding(true); setError('')
-    try { const created = await addItem({ ...values, title: values.title.trim(), author: me }); setItems(list => [created, ...(list || [])]); flash('Ideia adicionada.'); return true }
+    try { const created = await addItem({ ...values, title: values.title.trim(), author: me }); setItems(list => [created, ...(list || [])]); flash('Ideia adicionada na primeira página.'); if (here > 1) goTo(0); return true }
     catch (err) { console.error(err); fail('Não foi possível adicionar. Tente de novo.'); return false } finally { setAdding(false) }
   }
   const submit = async event => {
@@ -242,15 +294,18 @@ export default function BucketList({ role }) {
     try { const updated = await updateItem(id, patch); setItems(list => list.map(item => (item.id === id ? updated : item))); setError(''); flash('Salvo.'); return true }
     catch (err) { console.error(err); fail('Não foi possível salvar. Tente de novo.'); return false }
   }
-  // Fizemos: a linha se recolhe e a ideia reaparece na linha do tempo, com um destaque.
+  // Fizemos: a linha se recolhe, o caderno vira até a página do ano e a lembrança aparece com destaque.
   const finish = async (item, patch) => {
     try {
       const updated = await updateItem(item.id, patch)
       setActive(null); setDraw(current => (current.chosen?.id === item.id ? { ...current, chosen: null } : current))
       await collapse(`idea-${item.id}`)
-      setItems(list => list.map(entry => (entry.id === item.id ? updated : entry))); setArrived(item.id); setYear(yearOf(patch.doneAt)); setError('')
-      window.setTimeout(() => setArrived(current => (current === item.id ? null : current)), 2200)
-      window.setTimeout(() => document.getElementById(`memory-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 120)
+      const next = all.map(entry => (entry.id === item.id ? updated : entry))
+      setItems(next); setArrived(item.id); setError('')
+      const nextPages = pagesFor(next)
+      const target = pageOf(nextPages, item.id)
+      if (target >= 0) window.setTimeout(() => goTo(target, nextPages.length), 120)
+      window.setTimeout(() => setArrived(current => (current === item.id ? null : current)), 2600)
       flash('Riscada!')
     } catch (err) { console.error(err); fail('Não foi possível guardar. Tente de novo.') }
   }
@@ -270,52 +325,24 @@ export default function BucketList({ role }) {
   }
   const handlers = { save, finish, undo, remove, error: fail }
 
+  // ----- adesivos -----
   const placeSticker = async sticker => {
-    try { const created = await addSticker({ ...sticker, author: me }); setStickers(list => [...list, created]); setPicked(created.id) }
-    catch (err) { console.error(err); fail('Não foi possível colar o adesivo. Confira se a tabela bucket_stickers existe no Supabase.') }
+    try {
+      const created = await addSticker({ ...sticker, author: me })
+      setStickers(list => [...list, created]); setFresh(created.id); setPicked(null)
+      window.setTimeout(() => setFresh(current => (current === created.id ? null : current)), 900)
+    } catch (err) { console.error(err); fail('Não foi possível colar o adesivo. Confira se a tabela bucket_stickers existe no Supabase.') }
   }
-  const moveSticker = async (sticker, patch) => {
+  const changeSticker = async (sticker, patch) => {
     setStickers(list => list.map(entry => (entry.id === sticker.id ? { ...entry, ...patch } : entry)))
-    try { await updateSticker(sticker.id, patch) } catch (err) { console.error(err); fail('Não foi possível mover o adesivo.') }
+    try { await updateSticker(sticker.id, patch) } catch (err) { console.error(err); fail('Não foi possível mexer no adesivo.') }
   }
-  const rotateSticker = sticker => { let rotation = sticker.rotation + 20; if (rotation > 180) rotation -= 360; moveSticker(sticker, { rotation }) }
   const dropSticker = async sticker => {
     setPicked(null); setStickers(list => list.filter(entry => entry.id !== sticker.id))
     try { await removeSticker(sticker.id) } catch (err) { console.error(err); fail('Não foi possível tirar o adesivo.'); loadStickers() }
   }
-  const layer = (page, still) => <StickerLayer page={page} stickers={stickers} selected={picked} onSelect={setPicked} onMove={moveSticker} onRotate={rotateSticker} onRemove={dropSticker} still={still} />
 
-  const all = items || []
-  const total = counts(all)
-  const inCategory = all.filter(item => !category || item.category === category)
-  const ideas = inCategory.filter(item => !item.done)
-  const lived = inCategory.filter(item => item.done).sort((a, b) => new Date(b.doneAt) - new Date(a.doneAt))
-  const pool = roulettePool(all, { maxLevel: draw.maxLevel, category })
-
-  // Página da direita: um ano por vez, do mais recente para o mais antigo.
-  const thisYear = new Date().getFullYear()
-  const years = [...new Set(all.filter(item => item.done).map(item => yearOf(item.doneAt)).filter(Boolean))].sort((a, b) => b - a)
-  if (!years.length) years.push(thisYear)
-  const shownYear = years.includes(year) ? year : years[0]
-  const livedIn = y => lived.filter(item => yearOf(item.doneAt) === y)
-
-  // Virar a página: para trás no tempo a folha da direita vai para a esquerda; para frente, volta.
-  const turnTo = next => {
-    if (turn || next === shownYear || !years.includes(next)) return
-    setPicked(null); setActive(null)
-    if (reduceMotion() || narrow()) { setYear(next); return }
-    const older = next < shownYear
-    setTurn({ face: older ? shownYear : next, dir: older ? 'forward' : 'back' })
-    if (older) setYear(next)
-    window.setTimeout(() => { if (!older) setYear(next); setTurn(null) }, 950)
-  }
-  const openCover = () => {
-    rememberOpened()
-    if (reduceMotion()) { setCover('open'); return }
-    setCover('opening')
-    window.setTimeout(() => setCover('open'), narrow() ? 650 : 1250)
-  }
-
+  // ----- sorteio -----
   const land = pick => setDraw(current => ({ ...current, running: false, scan: null, chosen: pick }))
   const drawNow = () => {
     if (draw.running || !pool.length) return
@@ -329,65 +356,44 @@ export default function BucketList({ role }) {
       if (ticks >= 16) { window.clearInterval(timer.current); land(pick) } else setDraw(current => ({ ...current, scan: pool[ticks % pool.length].title }))
     }, 85)
   }
-  const openCapture = item => { setActive({ id: item.id, kind: 'capture' }); window.setTimeout(() => document.getElementById(`idea-${item.id}`)?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 60) }
+  const openCapture = item => {
+    const target = pageOf(pages, item.id)
+    if (target >= 0) goTo(target)
+    window.setTimeout(() => setActive({ id: item.id, kind: 'capture' }), turn || (wide && Math.floor(target / 2) !== spread) ? 960 : 0)
+  }
+  const openCover = () => {
+    rememberOpened()
+    if (reduceMotion()) { setCover('open'); return }
+    setCover('opening')
+    window.setTimeout(() => setCover('open'), narrow() ? 650 : 1250)
+  }
 
   const open = form.title.trim().length > 0
-
-  const yearProps = { thisYear, years, onTurn: turnTo, who, active, setActive, arrived, handlers }
   const closed = cover !== 'open'
+  const tabs = [{ label: 'Algum dia', index: 0 }, ...years.map(year => ({ label: String(year), index: pages.findIndex(page => page.type === 'year' && page.year === year) }))]
+  const tabOn = tab => { const page = pages[here]; return tab.index === 0 ? page?.type === 'ideas' : page?.type === 'year' && String(page.year) === tab.label }
 
-  return <section className="bk" aria-label="Caderno de sonhos">
-    <h1 className="sr-only">Caderno de sonhos</h1>
-    <p role="status" className="bk-status" key={notice}>{notice}</p>
-    {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
-
-    <div className={`bk-book is-${cover}`}>
-      <span className="bk-spine" aria-hidden="true" />
-      <span className="bk-ribbon" aria-hidden="true" />
-      <span className="bk-elastic" aria-hidden="true" />
-
-      {cover !== 'open' && <div className="bk-leaf bk-cover-leaf">
-        <div className="bk-leaf-face bk-cover">
-          <span className="bk-cover-label"><small>caderno de</small>sonhos<small>dele &amp; dela · desde 2026</small></span>
-          <button type="button" className="bk-cover-open" onClick={openCover} disabled={cover === 'opening'}>Abrir o caderno</button>
-        </div>
-        <div className="bk-leaf-face bk-leaf-back bk-endpaper" aria-hidden="true"><p>Este caderno é nosso.<br /><span>Para guardar o que a gente quer viver e o que já viveu.</span></p></div>
-      </div>}
-
-      {turn && <div className={`bk-leaf is-${turn.dir}`} aria-hidden="true">
-        <div className="bk-leaf-face bk-page-sheet bk-year-page" inert><YearPage year={turn.face} lived={livedIn(turn.face)} {...yearProps} still stickers={layer(pageKey(turn.face), true)} /></div>
-        <div className="bk-leaf-face bk-leaf-back" />
-      </div>}
-
-      {/* página 1: o que ainda falta viver */}
-      <section className="bk-page-sheet bk-first" data-sticker-page="algum-dia" aria-labelledby="bk-todo-title" inert={closed || undefined}>
+  // O conteúdo de uma página. "still" = cópia sem interação (na folha que está virando).
+  const renderPage = (page, index, still = false) => {
+    if (!page) return null
+    const layer = <StickerLayer page={page.key} stickers={stickers} selected={still ? null : picked} fresh={still ? null : fresh} onSelect={setPicked} onChange={changeSticker} onRemove={dropSticker} still={still} />
+    const nav = <footer className="bk-folio">
+      {index > 0 ? <button type="button" className="bk-turn prev" tabIndex={still ? -1 : 0} onClick={() => step(-1)} aria-label="Página anterior"><span aria-hidden="true">←</span></button> : <span />}
+      <i className="bk-page-no">{index + 1}</i>
+      {index < last ? <button type="button" className="bk-turn next" tabIndex={still ? -1 : 0} onClick={() => step(1)} aria-label="Próxima página"><span aria-hidden="true">→</span></button> : <span />}
+    </footer>
+    if (page.type === 'blank') return <><div className="bk-blank" aria-hidden="true"><p>continua…</p></div>{nav}{layer}</>
+    if (page.type === 'ideas') return <>
+      {page.n === 1 ? <>
         <header className="bk-page-head">
-          <h2 id="bk-todo-title">Algum dia… <small>{items === null ? '' : `${ideas.length} ${ideas.length === 1 ? 'ideia' : 'ideias'}`}</small></h2>
-          <label className="bk-filter"><span className="sr-only">Categoria</span><select value={category} onChange={event => setCategory(event.target.value)}><option value="">Tudo</option>{CATEGORIES.map(entry => <option key={entry.key} value={entry.key}>{entry.label}</option>)}</select></label>
+          <h2 id={still ? undefined : 'bk-todo-title'}>Algum dia… <small>{items === null ? '' : `${ideas.length} ${ideas.length === 1 ? 'ideia' : 'ideias'}`}</small></h2>
+          <label className="bk-filter"><span className="sr-only">Categoria</span><select tabIndex={still ? -1 : 0} value={category} onChange={event => { setCategory(event.target.value); setAt(0) }}><option value="">Tudo</option>{CATEGORIES.map(entry => <option key={entry.key} value={entry.key}>{entry.label}</option>)}</select></label>
         </header>
-
-        {(draw.running || draw.chosen) && <div className="bk-today">
-          {draw.chosen ? <div className="bk-hero" role="status">
-            <span className="bk-eyebrow">Para hoje</span>
-            <h3>{draw.chosen.title}</h3>
-            <div className="bk-hero-actions">
-              <button type="button" className="bk-primary" onClick={() => openCapture(draw.chosen)}>Fizemos</button>
-              <button type="button" className="bk-text-button" onClick={drawNow}>Sortear outra</button>
-              <label className="bk-level-limit">até o nível<select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value) })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select></label>
-              <button type="button" className="bk-text-button bk-close" onClick={() => setDraw({ ...draw, chosen: null })}>Fechar</button>
-            </div>
-          </div> : <p className="bk-scan" key={draw.scan} aria-hidden="true">{draw.scan}</p>}
-        </div>}
-
-        {items === null ? <p className="bk-empty">Abrindo o caderno…</p>
-          : ideas.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{ideas.map((item, index) => <Idea key={item.id} item={item} index={index} who={who(item)} mode={active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} handlers={handlers} />)}</ul>
-            : <p className="bk-empty">{all.length ? 'Nada por aqui com esse filtro.' : 'Página em branco. Escreva a primeira ideia.'}</p>}
-
         <form className={`bk-compose ${open ? 'is-open' : ''}`} onSubmit={submit}>
           <div className="bk-field">
-            <label htmlFor="bk-new" className="sr-only">Nova ideia</label>
-            <input id="bk-new" className="bk-compose-input" maxLength={140} autoComplete="off" placeholder="Eu quero…" value={form.title} onChange={event => { window.clearInterval(typer.current); setForm({ ...form, title: event.target.value }) }} />
-            <button type="button" className="bk-text-button bk-suggest" onClick={suggest} title="Sugerir uma ideia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>Sugerir</button>
+            <label htmlFor={still ? undefined : 'bk-new'} className="sr-only">Nova ideia</label>
+            <input id={still ? undefined : 'bk-new'} tabIndex={still ? -1 : 0} className="bk-compose-input" maxLength={140} autoComplete="off" placeholder="Eu quero…" value={form.title} onChange={event => { window.clearInterval(typer.current); setForm({ ...form, title: event.target.value }) }} />
+            <button type="button" tabIndex={still ? -1 : 0} className="bk-text-button bk-suggest" onClick={suggest} title="Sugerir uma ideia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>Sugerir</button>
           </div>
           <div className="bk-controls"><div className="bk-controls-inner">
             <div className="bk-cats" role="radiogroup" aria-label="Categoria">
@@ -396,15 +402,94 @@ export default function BucketList({ role }) {
             <div className="bk-compose-row"><Level value={form.level} onChange={level => setForm({ ...form, level })} /><button type="submit" className="bk-primary" disabled={adding}>{adding ? 'Adicionando…' : 'Adicionar'}</button></div>
           </div></div>
         </form>
+      </> : <header className="bk-page-head small"><h2>Algum dia… <small>continuação</small></h2></header>}
+      <div className="bk-page-body">
+        {items === null ? <p className="bk-empty">Abrindo o caderno…</p>
+          : page.items.length ? <ul className={`bk-ideas ${draw.chosen ? 'has-pick' : ''}`}>{page.items.map((item, i) => <Idea key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} picked={draw.chosen?.id === item.id} flash={false} handlers={handlers} />)}</ul>
+            : <p className="bk-empty">{all.length ? 'Nada por aqui com esse filtro.' : 'Página em branco. Escreva a primeira ideia.'}</p>}
+      </div>
+      {nav}{layer}
+    </>
+    return <>
+      {page.n === 1 ? <>
+        <header className="bk-year-head"><h2><span className="bk-year">{page.year}</span><small>{page.total} {page.total === 1 ? 'riscada' : 'riscadas'}{page.year === thisYear ? ' este ano' : ''}</small></h2></header>
+        <div className="bk-ruler" aria-hidden="true">
+          <ol>{MONTHS.map(month => <li key={month}>{month}</li>)}</ol>
+          <div className="bk-ruler-line">
+            {livedOf(all).filter(item => yearOf(item.doneAt) === page.year).map(item => <button type="button" tabIndex={-1} key={item.id} className="bk-ruler-dot" style={{ left: `${yearPosition(item.doneAt) * 100}%` }} title={item.title} onClick={() => goTo(pageOf(pages, item.id))} />)}
+            {page.year === thisYear && <span className="bk-ruler-now" style={{ left: `${yearPosition(new Date().toISOString()) * 100}%` }}>hoje</span>}
+          </div>
+        </div>
+      </> : <header className="bk-page-head small"><h2>{page.year} <small>continuação</small></h2></header>}
+      <div className="bk-page-body">
+        {page.items.length ? <ul className="bk-ideas bk-memories">{page.items.map((item, i) => <Memory key={item.id} item={item} index={i} who={who(item)} mode={!still && active?.id === item.id ? active.kind : null} setMode={setActive} arriving={!still && arrived === item.id} handlers={handlers} />)}</ul>
+          : <p className="bk-empty soft">Nada riscado em {page.year} ainda. Quando vocês fizerem a primeira, ela aparece aqui, com foto e tudo.</p>}
+      </div>
+      {nav}{layer}
+    </>
+  }
+  const sheetClass = page => `bk-page-sheet is-${page?.type || 'blank'}`
 
-        <footer className="bk-folio"><span className="bk-folio-actions"><button type="button" className="bk-draw" disabled={!pool.length || draw.running} onClick={drawNow}>Sortear uma<span aria-hidden="true">→</span></button><button type="button" className="bk-draw" aria-expanded={sheetOpen} onClick={() => setSheetOpen(value => !value)}>Adesivos</button></span><span>{total.done} de {total.todo + total.done} riscadas · <i className="bk-page-no">1</i></span></footer>
-        {layer('algum-dia')}
-      </section>
+  // Quem aparece embaixo da folha que vira (ver comentário em goTo).
+  const leftIndex = turn ? (turn.dir === 'forward' ? turn.from * 2 : turn.to * 2) : spread * 2
+  const rightIndex = turn ? (turn.dir === 'forward' ? turn.to * 2 + 1 : turn.from * 2 + 1) : spread * 2 + 1
+  const leafFront = turn ? (turn.dir === 'forward' ? turn.from * 2 + 1 : turn.to * 2 + 1) : null
+  const leafBack = turn ? (turn.dir === 'forward' ? turn.to * 2 : turn.from * 2) : null
+  const swipe = {
+    onTouchStart: event => { touch.current = event.touches[0].clientX },
+    onTouchEnd: event => { const dx = event.changedTouches[0].clientX - (touch.current ?? event.changedTouches[0].clientX); touch.current = null; if (Math.abs(dx) > 70) step(dx < 0 ? 1 : -1) },
+  }
 
-      {/* página 2: o ano, com o que já foi riscado */}
-      <section className="bk-page-sheet bk-year-page" data-sticker-page={pageKey(shownYear)} aria-labelledby="bk-year-title" inert={closed || undefined} onTouchStart={event => { touch.current = event.touches[0].clientX }} onTouchEnd={event => { const dx = event.changedTouches[0].clientX - (touch.current ?? event.changedTouches[0].clientX); touch.current = null; const at = years.indexOf(shownYear); if (dx < -70 && at < years.length - 1) turnTo(years[at + 1]); if (dx > 70 && at > 0) turnTo(years[at - 1]) }}>
-        <div key={shownYear} className="bk-year-content"><YearPage year={shownYear} lived={livedIn(shownYear)} {...yearProps} stickers={layer(pageKey(shownYear))} /></div>
-      </section>
+  return <section className="bk" aria-label="Caderno de sonhos">
+    <h1 className="sr-only">Caderno de sonhos</h1>
+    <div className={`bk-toolbar ${closed ? 'is-hidden' : ''}`}>
+      <span className="bk-tally">{total.done} de {total.todo + total.done} riscadas</span>
+      <p role="status" className="bk-status" key={notice}>{notice}</p>
+      <span className="bk-tools">
+        <button type="button" className="bk-tool" disabled={!pool.length || draw.running || closed} onClick={drawNow}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>Sortear uma</button>
+        <button type="button" className="bk-tool" disabled={closed} aria-expanded={sheetOpen} onClick={() => setSheetOpen(value => !value)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h11l5 5v11H4z" /><path d="M15 4v5h5" /></svg>Adesivos</button>
+      </span>
+    </div>
+    {error && <div role="alert" className="bk-error">{error} <button type="button" className="bk-text-button" onClick={() => { setError(''); load() }}>Tentar de novo</button></div>}
+
+    {!closed && <nav className="bk-tabs" aria-label="Seções do caderno">{tabs.map((tab, i) => <button key={tab.label} type="button" style={{ '--i': i }} aria-current={tabOn(tab) ? 'page' : undefined} onClick={() => goTo(tab.index)}>{tab.label}</button>)}</nav>}
+
+    <div className={`bk-book is-${cover} ${wide ? 'is-wide' : 'is-narrow'}`}>
+      <span className="bk-spine" aria-hidden="true" />
+      <span className="bk-ribbon" aria-hidden="true" />
+
+      {(draw.running || draw.chosen) && !closed && <aside className="bk-note-card" role="status">
+        <span className="bk-tape" aria-hidden="true" />
+        <span className="bk-eyebrow">Para hoje</span>
+        {draw.chosen ? <>
+          <h3>{draw.chosen.title}</h3>
+          <div className="bk-hero-actions">
+            <button type="button" className="bk-primary" onClick={() => openCapture(draw.chosen)}>Fizemos</button>
+            <button type="button" className="bk-text-button" onClick={drawNow}>Outra</button>
+            <label className="bk-level-limit">até o nível<select value={draw.maxLevel} onChange={event => setDraw({ ...draw, maxLevel: Number(event.target.value) })}>{LEVELS.map(level => <option key={level.value} value={level.value}>{level.value} · {level.label}</option>)}</select></label>
+            <button type="button" className="bk-text-button bk-close" onClick={() => setDraw({ ...draw, chosen: null })} aria-label="Fechar o bilhete">×</button>
+          </div>
+        </> : <p className="bk-scan" key={draw.scan} aria-hidden="true">{draw.scan}</p>}
+      </aside>}
+
+      {cover !== 'open' && <div className="bk-leaf bk-cover-leaf">
+        <div className="bk-leaf-face bk-cover">
+          <span className="bk-cover-label"><small>caderno de</small>sonhos<small>dele &amp; dela · desde 2026</small></span>
+          <button type="button" className="bk-cover-open" onClick={openCover} disabled={cover === 'opening'}>Abrir o caderno</button>
+          <span className="bk-cover-elastic" aria-hidden="true" />
+        </div>
+        <div className="bk-leaf-face bk-leaf-back bk-endpaper" aria-hidden="true"><p>Este caderno é nosso.<br /><span>Para guardar o que a gente quer viver e o que já viveu.</span></p></div>
+      </div>}
+
+      {turn && <div className={`bk-leaf is-${turn.dir}`} aria-hidden="true">
+        <div className={`bk-leaf-face ${sheetClass(pages[leafFront])}`} inert>{renderPage(pages[leafFront], leafFront, true)}</div>
+        <div className={`bk-leaf-face bk-leaf-back ${sheetClass(pages[leafBack])}`} inert>{renderPage(pages[leafBack], leafBack, true)}</div>
+      </div>}
+
+      {wide ? <>
+        <section key={`l${leftIndex}`} className={`${sheetClass(pages[leftIndex])} bk-left`} data-sticker-page={pages[leftIndex]?.key} aria-label={`Página ${leftIndex + 1}`} inert={closed || undefined}>{renderPage(pages[leftIndex], leftIndex)}</section>
+        <section key={`r${rightIndex}`} className={`${sheetClass(pages[rightIndex])} bk-right`} data-sticker-page={pages[rightIndex]?.key} aria-label={`Página ${rightIndex + 1}`} inert={closed || undefined}>{renderPage(pages[rightIndex], rightIndex)}</section>
+      </> : <section key={`p${here}`} className={`${sheetClass(pages[here])} bk-single ${slide ? `slide-${slide}` : ''}`} data-sticker-page={pages[here]?.key} aria-label={`Página ${here + 1} de ${pages.length}`} inert={closed || undefined} {...swipe}>{renderPage(pages[here], here)}</section>}
     </div>
     {sheetOpen && <StickerSheet onPlace={placeSticker} onClose={() => setSheetOpen(false)} />}
   </section>

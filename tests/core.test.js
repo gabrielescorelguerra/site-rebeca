@@ -265,5 +265,8 @@ test('adesivos têm chaves únicas e válidas para o banco', () => {
 test('páginas dos adesivos seguem o formato do banco', () => {
   assert.equal(pageKey(2026), 'ano-2026')
   assert.equal(pageKey(null), 'algum-dia')
+  assert.equal(pageKey('algum-dia', 3), 'algum-dia-3')
+  assert.equal(pageKey(2025, 2), 'ano-2025-2')
+  assert.match(pageKey(2025, 12), /^(algum-dia|ano-[0-9]{4})(-[0-9]{1,3})?$/)
   assert.match(pageKey(2025), /^(algum-dia|ano-[0-9]{4})$/)
 })

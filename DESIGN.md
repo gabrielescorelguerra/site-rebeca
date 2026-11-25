@@ -45,14 +45,15 @@ O botão “Testar como usuário comum” no editor ativa uma simulação nesta 
 
 ## Caderno de sonhos
 Segunda escolha da página “Nós dois” (`/links?aba=lista`, só admin por enquanto; a escolha “Links | Caderno de sonhos” fica no cabeçalho), na identidade do site: creme, rosa antigo, Georgia nas ideias e sistema nos controles.
-É uma bucket list num caderno aberto: duas páginas com a dobra no meio (no celular, uma folha embaixo da outra).
-- Página 1, "Algum dia…": as ideias que faltam, com bolinha para riscar, filtro de categoria discreto ("Tudo ▾"), "Eu quero…" como a próxima linha, "Sugerir", e no rodapé "Sortear uma →" e "X de Y riscadas". O sorteio aparece no topo da página.
-- Marcar a bolinha abre "Fizemos" na própria linha (data editável, como foi, fotos). A ideia vai para a página do ano em que aconteceu.
-- Página 2, o ano: número grande (2026), setas para anos anteriores, régua dos meses com um ponto por ideia riscada e a marca "hoje", e a lista do ano: bolinha marcada, título riscado em rosa, data, frase e a primeira foto como polaroid. Desmarcar devolve para "Algum dia…".
-- Detalhes de caderno, sempre discretos e na paleta: textura leve de papel, espessura das folhas embaixo, costura tracejada na lombada, fitinha marcadora rosa saindo da dobra, elástico ao lado, linha de margem rosa na página 1, fita adesiva nas polaroids, números de página em itálico e canto da folha dobrado.
-- Capa: o caderno começa fechado (capa rosa antigo, etiqueta “caderno de sonhos”, elástico). “Abrir o caderno” vira a capa para a esquerda e mostra a folha de guarda; a capa não volta na mesma sessão do navegador.
-- Virar páginas: cada ano é uma página. As setas, o “virar para 2025” no canto e o gesto de deslizar no celular trocam o ano; no computador a folha vira de verdade (3D), no celular só troca com suavidade.
-- Adesivos: “Adesivos” abre a cartela (12 desenhos próprios, sem emoji). Arraste para qualquer página, toque para colar no canto da primeira, arraste para mover, toque para girar ou tirar. Ficam salvos no Supabase (tabela `bucket_stickers`, posição em % da página).
+É uma bucket list num caderno de verdade, com altura fixa: quando não cabe mais nada, o conteúdo continua na próxima página (o caderno nunca cresce). No computador são duas páginas abertas; no celular, uma por vez.
+- Ordem das páginas: "Algum dia…" (ideias, mais novas primeiro; a 1ª página tem o título, o filtro "Tudo ▾" e o "Eu quero…") e depois um ano por vez, do mais recente ao mais antigo (a 1ª página do ano tem o número grande e a régua dos meses). Continuações dizem "continuação". Se sobrar uma página ímpar, ela fica em branco ("continua…").
+- Virar: setas no rodapé de cada página, setas do teclado, deslizar no celular, ou as abas de divisória (Algum dia, 2026, 2025…) na lateral (no celular, em cima). No computador a folha vira em 3D; no celular, desliza.
+- Linhas com tamanho previsível: título até 2 linhas, detalhe 1 linha, frase da lembrança até 2 (o texto completo aparece ao editar). Se algo ainda não couber (um formulário aberto), rola dentro da página.
+- Barra acima do caderno: "X de Y riscadas", avisos, "Sortear uma" e "Adesivos". O sorteio aparece como um bilhete preso com fita sobre o caderno.
+- Marcar a bolinha abre "Fizemos" na própria linha (data editável, como foi, fotos). Ao guardar, o caderno vira até a página do ano e a lembrança aparece em destaque.
+- Capa: o caderno começa fechado (capa rosa antigo, etiqueta, elástico). "Abrir o caderno" vira a capa e mostra a folha de guarda; não volta na mesma sessão do navegador.
+- Adesivos (papelaria, desenhos próprios, sem emoji: selos, lacre de cera, flor prensada, bilhete, polaroid, ingresso, etiqueta, coração, estrela…): a cartela sobe de baixo; puxe um adesivo e ele segue o dedo com leve atraso, inclinando conforme o movimento; solto numa página ele é "pressionado" no papel; fora da página volta para a cartela. Arraste para mover (ele levanta). Toque para selecionar: a alça do canto gira e muda o tamanho num gesto só; o × descola. Ficam no Supabase (`bucket_stickers`: página, posição em %, giro, tamanho).
+- Detalhes de caderno, sempre discretos: textura de papel, espessura das folhas, costura na lombada, fitinha marcadora, linha de margem rosa, fita adesiva nas polaroids, números de página, canto dobrado.
 - Categorias: Sonhos, Bobeiras, Comidas, Viagens, Românticos, Aventuras (as chaves no banco não mudam).
 - Sem selos, emojis, confete ou barras de progresso.
 
